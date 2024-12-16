@@ -12,6 +12,7 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
   const [paymentMode, setPaymentMode] = useState("Cash"); // Default value
   const [paymentsReceived, setPaymentsReceived] = useState([]); // To hold multiple payments
   const [promisedDate, setPromisedDate] = useState("");
+  const [TotalPrice, setTotalAmount] = useState(0)
   const [trustedPerson, setTrustedPerson] = useState({ 
     name: "", 
     cnic: "", 
@@ -70,6 +71,7 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
       const total = products.reduce((acc, product) => 
         acc + (product.unitSellingPrice || product.unitPrice) * product.quantity, 0
       );
+      setTotalAmount(total)
   
       // Format products data
       const formattedProducts = products.map(product => ({
@@ -243,6 +245,7 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
     // Start Generating Invoice
     addHeader();
     addWatermark();
+    console.log(products)
   
     const invoiceNumber = Math.floor(100000 + Math.random() * 900000);
     const now = new Date();
@@ -280,6 +283,20 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
     checkPageBreak();
   
     // Products Section
+   // Calculate total bill from selling prices
+const totalBill = products?.reduce((total, product) => {
+  const sellingPrice = product.unitSellingPrice || product.unitPrice || 0;
+  const quantity = product.quantity || 0;
+  return total + (sellingPrice * quantity);
+}, 0);
+
+// Add total section to invoice
+addSectionHeader("Total Bill");
+doc.setFontSize(12);
+doc.setFont("helvetica", "bold");
+addField("Total Amount", `₨${totalBill.toLocaleString() || "N/A"}`, 0);
+currentY += spacing * 2;
+checkPageBreak();
     addSectionHeader("Product Details");
     products?.forEach((product, index) => {
       addField(`Product ${index + 1}`, product.productName || "N/A");
@@ -289,11 +306,11 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
       addField("Condition", product.condition || "N/A");
       addField("Quantity", product.quantity?.toString() || "N/A", 90);
       currentY += spacing;
-      addField("Unit Price", `₨${product.unitPrice?.toLocaleString() || "N/A"}`, 0);
+      addField("Unit Price", `₨${product.unitSellingPrice?.toLocaleString() || "N/A"}`, 0);
       currentY += spacing * 2;
       checkPageBreak();
     });
-  
+    
     // Payments Received Section
     if (paymentsReceived?.length > 0) {
       addSectionHeader("Payments Received");
