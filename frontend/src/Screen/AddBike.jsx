@@ -1,0 +1,1017 @@
+import React, { useState, useEffect } from 'react';
+
+import {
+  Box,
+  TextField,
+  FormControl,
+  InputLabel,
+  Typography,
+  Autocomplete,
+  Divider,
+  Snackbar,
+  Alert,
+  FormHelperText,
+  Select,
+  MenuItem,
+  Modal,
+  IconButton,
+  DialogActions,
+  Button,
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import url from '../baseUrl'
+
+
+
+
+const cities = [
+  'Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Multan',
+  'Hyderabad', 'Faisalabad', 'Gujranwala', 'Peshawar', 'Quetta',
+  'Sialkot', 'Bahawalpur', 'Sukkur', 'Larkana', 'Nawabshah',
+];
+
+const AddBike = () => {
+
+  const [manufacturers, setManufacturers] = useState([]);
+  const [models, setModels] = useState([]);
+  const [savedSellers, setSavedSellers] = useState([]);
+  const [selectedType, setSelectedType] = useState('');
+  const [currentStep, setCurrentStep] = useState(0);  
+  const [bikeModels, setBIKEMODELS] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [error, setError] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(true);
+const [sellerType, setSellerType] = useState("");
+const [selectedSeller, setSelectedSeller] = useState(null);
+const [sellerName, setSellerName] = useState("");
+const [sellerContactNo, setSellerContactNo] = useState("");
+const [sellerAddress, setSellerAddress] = useState("");
+const [SellerCNIC, setSellerCNIC] = useState("");
+const [selectedModel, setSelectedModel] = useState("");
+const [selectedManufacturer, setSelectedManufacturer] = useState("");
+const [modelYear, setModelYear] = useState("");
+const [stockQuantity, setStockQuantity] = useState(1);
+const [purchaseDate, setPurchaseDate] = useState("");
+const [bikeEntries, setBikeEntries] = useState([
+  {
+    chassisNumber: "",
+    registrationNumber: "",
+    condition: "new",
+    mileage: 0,
+    registrationCity: "",
+    purchasePrice: "",
+    purchaseDate: "",
+    purchaseTime: "",
+  },
+]);
+const [errors, setErrors] = useState({});
+
+  
+
+  
+
+  useEffect(() => {
+    const fetchManufacturers = () => {
+      fetch(`${url}/manufacturer/`)
+        .then((response) => response.json())
+        .then((data) => {
+          setManufacturers(data);
+          localStorage.setItem('manufacturers', JSON.stringify(data));
+        })
+        .catch((error) => {
+          console.error('Error fetching manufacturers:', error);
+          const cachedManufacturers = localStorage.getItem('manufacturers');
+          if (cachedManufacturers) setManufacturers(JSON.parse(cachedManufacturers));
+        });
+    };
+
+    if (navigator.onLine) fetchManufacturers();
+    else {
+      const cachedManufacturers = localStorage.getItem('manufacturers');
+      if (cachedManufacturers) setManufacturers(JSON.parse(cachedManufacturers));
+    }
+
+    window.addEventListener('online', fetchManufacturers);
+    return () => window.removeEventListener('online', fetchManufacturers);
+  }, []);
+  useEffect(() => {
+    // Check if all required fields have values
+    const isFormValid =
+      selectedType &&
+      selectedManufacturer &&
+      selectedModel &&
+      modelYear &&
+      sellerType &&
+      stockQuantity;
+  
+    setIsDisabled(!isFormValid); // Set isDisabled based on form validity
+  }, [selectedType, selectedManufacturer, selectedModel, modelYear, sellerType, stockQuantity]);
+  
+  
+  useEffect(() => {
+    if (selectedManufacturer && selectedType) {
+      const manufacturerId = manufacturers.find((m) => m.name === selectedManufacturer)?.id;
+      if (manufacturerId) {
+        const fetchModels = () => {
+          fetch(`${url}/bikemodel/${manufacturerId}/${selectedType}/models`)
+            .then((response) => response.json())
+            .then((data) => {
+              setModels(data.map((model) => model.modelName));
+              setBIKEMODELS(data);
+              localStorage.setItem(`models_${manufacturerId}_${selectedType}`, JSON.stringify(data));
+            })
+            .catch((error) => {
+              console.error('Error fetching models:', error);
+              const cachedModels = localStorage.getItem(`models_${manufacturerId}_${selectedType}`);
+              if (cachedModels) {
+                const data = JSON.parse(cachedModels);
+                setModels(data.map((model) => model.modelName));
+                setBIKEMODELS(data);
+              }
+            });
+        };
+
+        if (navigator.onLine) fetchModels();
+        else {
+          const cachedModels = localStorage.getItem(`models_${manufacturerId}_${selectedType}`);
+          if (cachedModels) {
+            const data = JSON.parse(cachedModels);
+            setModels(data.map((model) => model.modelName));
+            setBIKEMODELS(data);
+          }
+        }
+
+        window.addEventListener('online', fetchModels);
+        return () => window.removeEventListener('online', fetchModels);
+      }
+    } else {
+      setModels([]);
+    }
+  }, [selectedManufacturer, selectedType, manufacturers]);
+  
+  useEffect(() => {
+    const fetchSellers = () => {
+      fetch(`${url}/bikeseller/`)
+        .then((response) => response.json())
+        .then((data) => {
+          console.log('Fetched saved sellers:', data);
+          setSavedSellers(data);
+          localStorage.setItem('savedSellers', JSON.stringify(data)); // Save to local storage
+          if (data.length > 0) {
+            setSelectedSeller(data[0]);
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching saved sellers:', error);
+          // Load from local storage if available
+          const cachedSellers = localStorage.getItem('savedSellers');
+          if (cachedSellers) {
+            setSavedSellers(JSON.parse(cachedSellers));
+          }
+        });
+    };
+  
+    if (navigator.onLine) {
+      fetchSellers();
+    } else {
+      // Load from local storage if offline
+      const cachedSellers = localStorage.getItem('savedSellers');
+      if (cachedSellers) {
+        setSavedSellers(JSON.parse(cachedSellers));
+      }
+    }
+  
+    // Retry fetching when back online
+    window.addEventListener('online', fetchSellers);
+    return () => window.removeEventListener('online', fetchSellers);
+  }, []);
+  
+  useEffect(() => {
+    // Clear selectedSeller state when savedSellers changes
+    setSelectedSeller(Array(savedSellers.length).fill(''));
+  }, [savedSellers]);
+  
+  useEffect(() => {
+    if (selectedManufacturer) {
+      const manufacturerId = manufacturers.find((m) => m.name === selectedManufacturer)?.id;
+      if (manufacturerId) {
+        const fetchModels = () => {
+          fetch(`${url}/bikemodel/${manufacturerId}/${selectedType}/models`)
+            .then((response) => response.json())
+            .then((data) => {
+              setModels(data.map((model) => model.modelName));
+              setBIKEMODELS(data);
+              localStorage.setItem(`models_${manufacturerId}_${selectedType}`, JSON.stringify(data)); // Save to local storage
+            })
+            .catch((error) => {
+              console.error('Error fetching models:', error);
+              // Load from local storage if available
+              const cachedModels = localStorage.getItem(`models_${manufacturerId}_${selectedType}`);
+              if (cachedModels) {
+                const data = JSON.parse(cachedModels);
+                setModels(data.map((model) => model.modelName));
+                setBIKEMODELS(data);
+              }
+            });
+        };
+  
+        if (navigator.onLine) {
+          fetchModels();
+        } else {
+          // Load from local storage if offline
+          const cachedModels = localStorage.getItem(`models_${manufacturerId}_${selectedType}`);
+          if (cachedModels) {
+            const data = JSON.parse(cachedModels);
+            setModels(data.map((model) => model.modelName));
+            setBIKEMODELS(data);
+          }
+        }
+  
+        // Retry fetching when back online
+        window.addEventListener('online', fetchModels);
+        return () => window.removeEventListener('online', fetchModels);
+      }
+    } else {
+      setModels([]);
+    }
+  }, [selectedManufacturer, manufacturers]);
+  
+
+  const handleManufacturerChange = (event, newValue) => {
+    setSelectedManufacturer(newValue);
+    setSelectedModel('');
+    clearErrors();
+  };
+
+  const handleSellerTypeChange = (event) => {
+    setSellerType(event.target.value);
+    if (event.target.value === 'saved') setSelectedSeller(savedSellers.length > 0 ? savedSellers[0] : null);
+    else setSelectedSeller(null);
+    clearErrors();
+  };
+  
+  const handleAddBike = () => {
+    const newErrors = {};
+    let sellerInformation;
+  
+    // Validate seller information
+    if (sellerType === "saved") {
+      if (!selectedSeller) {
+        newErrors.savedSeller = "Please select a saved seller";
+      } else {
+        sellerInformation = {
+          name: selectedSeller.SellerName,
+          contactNo: selectedSeller.SellerContactNo,
+          address: selectedSeller.SellerAddress,
+          cnic: selectedSeller.SellerCNIC,
+        };
+      }
+    } else if (sellerType === "manual") {
+      if (!sellerName) newErrors.sellerName = "Seller Name is required";
+      if (!sellerContactNo) newErrors.sellerContactNo = "Contact Number is required";
+      if (!sellerAddress) newErrors.sellerAddress = "Address is required";
+      if (!SellerCNIC) newErrors.SellerCNIC = "CNIC is required";
+  
+      sellerInformation = {
+        name: sellerName,
+        contactNo: sellerContactNo,
+        address: sellerAddress,
+        cnic: SellerCNIC,
+      };
+    } else {
+      newErrors.sellerType = "Seller Type is required";
+    }
+  
+    // Validate Bike Entries
+    const currentTime = new Date().toLocaleTimeString();
+    bikeEntries.forEach((entry, index) => {
+      if (!entry.chassisNumber) newErrors[`chassisNumber${index}`] = "Chassis Number is required.";
+      if (entry.condition !== "new" && !entry.registrationNumber)
+        newErrors[`registrationNumber${index}`] = "Registration Number is required for used bikes.";
+      if (!entry.purchasePrice || entry.purchasePrice <= 0)
+        newErrors[`purchasePrice${index}`] = "Valid Purchase Price is required.";
+      if (!entry.purchaseDate) newErrors[`purchaseDate${index}`] = "Purchase Date is required.";
+      entry.purchaseTime = entry.purchaseTime || currentTime;
+    });
+  
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+  
+    const bikeModelObject = bikeModels.find((model) => model.modelName === selectedModel);
+    if (!bikeModelObject) {
+      console.error("Bike model not found.");
+      return;
+    }
+  
+    const requestBody = {
+      Inventory: {
+        manufacturer: selectedManufacturer,
+        model: bikeModelObject.modelName,
+        modelYear,
+        stockQuantity,
+        purchaseDate,
+        bikeEntries: bikeEntries.map((entry) => ({
+          ...entry,
+          sellerInfo: sellerInformation,
+          type: bikeModelObject.type,
+          ...(bikeModelObject.type === "Non-Electric" && {
+            cc: bikeModelObject.power.cc || "NA",
+            stroke: bikeModelObject.engine.stroke || "NA",
+          }),
+          ...(bikeModelObject.type === "Electric" && {
+            power: bikeModelObject.power.watt || "NA",
+            range: bikeModelObject.range || "NA",
+            battery: bikeModelObject.power.battery || "NA",
+          }),
+        })),
+      },
+    };
+  
+    console.log(requestBody)
+    fetch(`${url}/bikeinventory/addBikeToInventory`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+
+    })
+      .then((response) => {
+        console.log(response)
+
+        if (!response.ok) {
+          return response.json().then((errData) => {
+            throw new Error(`Failed to add bikes: ${errData.message || response.status}`);
+          });
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("Success:", data);
+        setSuccessMessage("Bike added successfully!");
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        setError(error.message);
+      });
+  };
+
+  
+  
+  
+  const handleEntryChange = (index, e) => {
+    const { name, value } = e.target;
+    const newEntries = [...bikeEntries];
+  
+    // Ensure the entry is initialized before setting its properties
+    if (!newEntries[index]) {
+      newEntries[index] = {}; // Initialize if undefined
+    }
+  
+    // Prevent negative values for mileage
+    if (name === 'mileage' && value < 0) {
+      newEntries[index].mileage = 0;
+    } else {
+      newEntries[index] = { ...newEntries[index], [name]: value };
+    }
+  
+    setBikeEntries(newEntries);
+    clearErrors();
+  };
+  
+
+  const handleStockQuantityChange = (e) => {
+    const value = parseInt(e.target.value, 10);
+    setStockQuantity(value);
+    if (value > bikeEntries.length) {
+      setBikeEntries([...bikeEntries, ...Array(value - bikeEntries.length).fill({})]);
+    } else {
+      setBikeEntries(bikeEntries.slice(0, value));
+    }
+  };
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    handleAddBike();
+  };
+
+  const handleSavedSellerChange = (event, newValue) => {
+    console.log('Selected seller:', newValue);
+    setSelectedSeller(newValue);
+    
+    // Update all bike entries with the selected seller info
+    const updatedEntries = bikeEntries.map(entry => ({
+      ...entry,
+      sellerInfo: newValue ? {
+        name: newValue.SellerName,
+        contactNo: newValue.SellerContactNo,
+        address: newValue.SellerAddress,
+        cnic: newValue.SellerCNIC,
+      } : null
+    }));
+    setBikeEntries(updatedEntries);
+  };
+
+
+  // Set mileage to 0 for new bikes and prevent negative values
+const handleConditionChange = (index, value) => {
+  const newEntries = [...bikeEntries];
+  if (!newEntries[index]) {
+    newEntries[index] = {};
+  }
+  newEntries[index].condition = value;
+  if (value === 'new') {
+    newEntries[index].registrationCity = 'NA';
+    newEntries[index].registrationNumber = 'NA';
+    newEntries[index].mileage = 0;
+
+  } else {
+    newEntries[index].mileage = ''; // Clear mileage field for used bikes
+    newEntries[index].registrationCity = '';
+    newEntries[index].registrationNumber = '';
+  }
+  setBikeEntries(newEntries);
+};
+
+
+  const clearErrors = () => {
+    setErrors({});
+    
+  };
+  
+  const handleNextClick = () => {
+    if (currentStep < stockQuantity - 1) {
+      setCurrentStep(currentStep + 1);  // Show the next modal
+    } else {
+      handleAddBike();  // Trigger adding bikes when reaching the last step
+    }
+  };
+  const handleCloseSnackbar = () => {
+    setOpen(false);
+    setSuccessMessage('');
+  };
+
+  const handleTypeChange = (event) => {
+    setSelectedType(event.target.value);
+    clearErrors();
+  };
+
+
+  const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '500px',
+    maxWidth: '90%',
+    backgroundColor: '#f7fdf9',
+    borderRadius: '15px',
+    boxShadow: '0 8px 24px rgba(0, 128, 0, 0.2)',
+    padding: '25px',
+    textAlign: 'center',
+    overflow: 'hidden',
+  };
+  
+ 
+
+  return (
+
+    <div>
+      <Box
+      sx={{
+        position: 'relative',
+        padding: 3,
+        backgroundColor: '#f0f4f8',
+        maxWidth: '800px',
+        margin: '0 auto',
+        borderRadius: '8px',
+        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e0e0e0',
+        overflow: 'hidden',
+      }}
+    >
+      {[...Array(3)].map((_, index) => (
+        <Box
+          key={index}
+          sx={{
+            position: 'absolute',
+            borderRadius: '50%',
+            backgroundColor: index % 2 === 0 ? '#15c01b' : '#81C784',
+            opacity: 0.15,
+            animation: `float${index + 1} ${5 + index * 2}s ease-in-out infinite`,
+            width: `${80 + index * 20}px`,
+            height: `${80 + index * 20}px`,
+            top: `${Math.random() * 80}%`,
+            left: `${Math.random() * 80}%`,
+            '@keyframes float1': {
+              '0%': { transform: 'translateY(0) translateX(0)' },
+              '50%': { transform: 'translateY(-20px) translateX(10px)' },
+              '100%': { transform: 'translateY(0) translateX(0)' },
+            },
+            '@keyframes float2': {
+              '0%': { transform: 'translateY(0) translateX(0)' },
+              '50%': { transform: 'translateY(20px) translateX(-10px)' },
+              '100%': { transform: 'translateY(0) translateX(0)' },
+            },
+            '@keyframes float3': {
+              '0%': { transform: 'translateY(0) translateX(0)' },
+              '50%': { transform: 'translateY(-10px) translateX(15px)' },
+              '100%': { transform: 'translateY(0) translateX(0)' },
+            },
+            '@keyframes float4': {
+              '0%': { transform: 'translateY(0) translateX(0)' },
+              '50%': { transform: 'translateY(15px) translateX(-10px)' },
+              '100%': { transform: 'translateY(0) translateX(0)' },
+            },
+            '@keyframes float5': {
+              '0%': { transform: 'translateY(0) translateX(0)' },
+              '50%': { transform: 'translateY(-15px) translateX(20px)' },
+              '100%': { transform: 'translateY(0) translateX(0)' },
+            },
+            '@keyframes float6': {
+              '0%': { transform: 'translateY(0) translateX(0)' },
+              '50%': { transform: 'translateY(10px) translateX(-20px)' },
+              '100%': { transform: 'translateY(0) translateX(0)' },
+            },
+          }}
+        />
+      ))}
+
+<Box
+        sx={{
+          position: 'absolute',
+          top: '-50px',
+          left: '-50px',
+          width: '150px',
+          height: '150px',
+          borderRadius: '50%',
+          backgroundColor: '#4CAF50',
+          opacity: 0.2,
+          animation: 'float1 6s ease-in-out infinite',
+          '@keyframes float1': {
+            '0%': { transform: 'translateY(0)' },
+            '50%': { transform: 'translateY(20px)' },
+            '100%': { transform: 'translateY(0)' },
+          },
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: '-50px',
+          right: '-50px',
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          backgroundColor: '#4CAF50',
+          opacity: 0.2,
+          animation: 'float2 8s ease-in-out infinite',
+          '@keyframes float2': {
+            '0%': { transform: 'translateY(0)' },
+            '50%': { transform: 'translateY(-20px)' },
+            '100%': { transform: 'translateY(0)' },
+          },
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '100px',
+          height: '100px',
+          borderRadius: '50%',
+          backgroundColor: '#4CAF50',
+          opacity: 0.1,
+          transform: 'translate(-50%, -50%)',
+          animation: 'float3 10s ease-in-out infinite',
+          '@keyframes float3': {
+            '0%': { transform: 'translate(-50%, -50%)' },
+            '50%': { transform: 'translate(-50%, -30%)' },
+            '100%': { transform: 'translate(-50%, -50%)' },
+          },
+        }}
+      />
+
+{Object.keys(errors).length > 0 && (
+    <ul>
+      {Object.entries(errors).map(([key, value]) => (
+        <li key={key} style={{ color: "red" }}>
+          {value}
+        </li>
+      ))}
+    </ul>
+  )}
+      <Box
+        component="form"
+        noValidate
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <Typography
+          variant="h5"
+          sx={{
+            marginBottom: '7px',
+            fontWeight: 'bold',
+            color: '#4CAF50',
+            fontSize: '1.5rem',
+            textAlign: 'center',
+          }}
+        >
+          Add Bikes
+        </Typography>
+
+        <Divider sx={{ marginBottom: '20px' }} />
+
+        <Box sx={{ maxHeight: '320px', overflowY: 'auto', padding: '8px' }}>
+          <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+            <InputLabel>Bike Type</InputLabel>
+            <Select
+              label="Bike Type"
+              name="bikeType"
+              value={selectedType}
+              onChange={handleTypeChange}
+              // onChange={(e) => setSelectedType(e.target.value)}
+              required
+              sx={{ textAlign: 'left' }}
+            >
+              <MenuItem value="Electric">Electric</MenuItem>
+              <MenuItem value="Non-Electric">Non-Electric</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+            <Autocomplete
+              options={manufacturers.map((manufacturer) => manufacturer.name)}
+              value={selectedManufacturer}
+              onChange={handleManufacturerChange}
+              // onChange={(event, newValue) => setSelectedManufacturer(newValue)}
+              disableClearable
+              renderInput={(params) => (
+                <TextField {...params} label="Select Manufacturer" required />
+              )}
+            />
+            {errors.selectedManufacturer && <FormHelperText error>{errors.selectedManufacturer}</FormHelperText>}
+          </FormControl>
+
+          <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+            <Autocomplete
+              options={models}
+              value={selectedModel}
+              onChange={(event, newValue) => {
+                setSelectedModel(newValue);
+                clearErrors();
+              }}
+              disableClearable
+              renderInput={(params) => (
+                <TextField {...params} label="Select Model" required />
+              )}
+            />
+            {errors.selectedModel && <FormHelperText error>{errors.selectedModel}</FormHelperText>}
+          </FormControl>
+
+          <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+            <TextField
+              label="Model Year"
+              variant="outlined"
+              select
+              value={modelYear}
+              onChange={(e) => setModelYear(e.target.value)}
+            >
+              {[...Array(50)].map((_, i) => {
+                const year = new Date().getFullYear() - i;
+                return (
+                  <MenuItem key={year} value={year}>
+                    {year}
+                  </MenuItem>
+                );
+              })}
+            </TextField>
+          </FormControl>
+
+          <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+            <InputLabel>Seller Type</InputLabel>
+            <Select
+              label="Seller Type"
+              name="sellerType"
+              value={sellerType}
+              // onChange={(e) => setSellerType(e.target.value)}
+              onChange={handleSellerTypeChange}
+            >
+              <MenuItem value="saved">Saved Seller</MenuItem>
+              <MenuItem value="manual">Manual Entry</MenuItem>
+            </Select>
+            {errors.sellerType && <FormHelperText error>{errors.sellerType}</FormHelperText>}
+          </FormControl>
+
+          <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+            <TextField
+              type="number"
+              label="Stock Quantity"
+              value={stockQuantity}
+              // onChange={(e) => setStockQuantity(e.target.value)}
+              onChange={handleStockQuantityChange}
+              required
+              InputProps={{
+                inputProps: { 
+                  min: 0,
+                  style: { 
+                    appearance: 'none', 
+                    MozAppearance: 'textfield', 
+                    WebkitAppearance: 'none',
+                  }
+                },
+              }}
+            />
+            {errors.stockQuantity && <FormHelperText error>{errors.stockQuantity}</FormHelperText>}
+          </FormControl>
+
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setOpen(true)}
+            disabled={isDisabled}
+            sx={{
+              textTransform: 'none',
+              padding: '8px 16px',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+              marginTop: { xs: 2, sm: 0 },
+              marginLeft: 'auto',  
+              marginRight: 2,
+              width: '150px',
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center',  
+              borderRadius: '30px',
+              textAlign: 'center',  
+              '&:hover': {
+                backgroundColor: isDisabled ? 'primary.main' : 'green',
+                transform: isDisabled ? 'none' : 'scale(1.1)',
+                transition: 'transform 0.2s ease-in-out',
+              },
+            }}
+          >
+            Next
+          </Button>
+
+
+
+        </Box>
+      </Box>
+    </Box>
+
+    <Modal open={open} onClose={() => setOpen(false)}  fullWidth maxWidth="sm"> 
+    <Box sx={{ ...modalStyle, position: 'relative', padding: 3, maxHeight: '80vh', overflowY: 'auto' }}>
+    {Array.from({ length: stockQuantity }).map((_, index) => (
+
+      <Box
+        key={index}
+        component="form"
+        noValidate
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          position: 'relative',
+          marginBottom: '20px',
+          padding: 2,
+          border: '1px solid #E0E0E0',
+          borderRadius: '8px',
+          backgroundColor: '#fafafa',
+        }}
+      >
+        <IconButton
+          onClick={() => setOpen(false)}
+          sx={{
+            position: 'absolute',
+            right: '15px',
+            color: '#4CAF50',
+            '&:hover': { color: 'red', transform: 'scale(1.1)', transition: 'transform 0.2s ease-in-out' },
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+        <Typography variant="h5" sx={{ marginBottom: '7px', fontWeight: 'bold', color: '#4CAF50', fontSize: '1.5rem' }}>
+          Bike number {index + 1} detail
+        </Typography>
+          <Divider sx={{ marginBottom: '20px' }} />
+
+
+            <Box
+              sx={{
+                maxHeight: '320px',
+                overflowY: 'auto',
+                paddingRight: '8px',
+              }}
+            >
+              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2, marginTop: 1 }}>
+              <TextField
+                label="Chassis Number"
+                name="chassisNumber"
+                value={bikeEntries[index]?.chassisNumber || ''}
+                onChange={(e) => handleEntryChange(index, e)}
+                error={!!errors[`chassisNumber${index}`]}
+                helperText={errors[`chassisNumber${index}`]}
+              />
+
+
+              {errors[`chassisNumber${index}`] && <FormHelperText error>{errors[`chassisNumber${index}`]}</FormHelperText>}
+              </FormControl>
+
+              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+                <InputLabel>Condition</InputLabel>
+                <Select
+                    value={bikeEntries[index]?.condition || ''}
+                    onChange={(e) => handleConditionChange(index, e.target.value)}
+                    name="condition"
+                    label="Condition"
+                    sx={{ textAlign: 'left' }}
+                    required
+                >
+                    <MenuItem value="new">New</MenuItem>
+                    <MenuItem value="used">Used</MenuItem>
+                </Select>
+            </FormControl>
+
+
+              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                <TextField
+                    label="Registration Number"
+                    name="registrationNumber"
+                    value={bikeEntries[index]?.registrationNumber || ''}
+                    onChange={(e) => handleEntryChange(index, e)}
+                    disabled={bikeEntries[index]?.condition === 'new'}
+                    required={bikeEntries[index]?.condition !== 'new'}
+                    />
+                    {errors[`registrationNumber${index}`] && <FormHelperText error>{errors[`registrationNumber${index}`]}</FormHelperText>}
+              </FormControl>
+
+              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                <TextField
+                    type="number"
+                    fullWidth
+                    label="Mileage"
+                    name="mileage"
+                    value={bikeEntries[index]?.mileage || ''} // Use optional chaining to prevent accessing undefined
+                    onChange={(e) => handleEntryChange(index, e)}
+                    required={bikeEntries[index]?.condition === 'used'} // Require mileage if condition is 'used'
+                  />
+                  {errors[`mileage${index}`] && <FormHelperText error>{errors[`mileage${index}`]}</FormHelperText>}
+              </FormControl>
+
+              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                <Autocomplete
+                  options={cities}
+                  value={bikeEntries[index]?.registrationCity || ''}
+                  onChange={(e, value) => {
+                    const newEntries = [...bikeEntries];
+                    newEntries[index] = { ...newEntries[index], registrationCity: value };
+                    setBikeEntries(newEntries);
+                  }}
+                  disabled={bikeEntries[index]?.condition === 'new'}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Registration City" required={bikeEntries[index]?.condition !== 'new'} />
+                  )}
+                />
+                {errors[`registrationCity${index}`] && <FormHelperText error>{errors[`registrationCity${index}`]}</FormHelperText>}
+              </FormControl>
+
+              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                <TextField
+                  label="Purchase Price"
+                  variant="outlined"
+                  fullWidth
+                  type="number"
+                  name="purchasePrice"
+                  value={bikeEntries[index]?.purchasePrice || ''} // Use optional chaining
+                  onChange={(e) => handleEntryChange(index, e)}
+                  error={!!errors[`purchasePrice${index}`]}
+                  helperText={errors[`purchasePrice${index}`]}
+                  />
+              </FormControl>
+
+              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                <TextField
+                  label="Purchase Date"
+                  variant="outlined"
+                  fullWidth
+                  type="date"
+                  name="purchaseDate"
+                  value={bikeEntries[index]?.purchaseDate || purchaseDate} // Change entry to bikeEntries[index]
+                  onChange={(e) => handleEntryChange(index, e)}
+                  error={!!errors[`purchaseDate${index}`]}
+                  helperText={errors[`purchaseDate${index}`]}
+                  
+                />
+              </FormControl>
+
+              {sellerType === 'manual' && (
+                <>
+
+                <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                  <TextField
+                    label="Seller Name"
+                    name="sellerName"
+                    onChange={(e) => setSellerName(e.target.value)}
+                  />
+                  {errors[`sellerName${index}`] && <FormHelperText error>{errors[`sellerName${index}`]}</FormHelperText>}
+
+                </FormControl>
+
+                <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                  <TextField
+                    label="Contact Number"
+                    name="contactNo"
+                    onChange={(e) => setSellerContactNo(e.target.value)}
+                  />
+                  {errors[`contactNo${index}`] && <FormHelperText error>{errors[`contactNo${index}`]}</FormHelperText>}
+                </FormControl>
+                      
+                <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                  <TextField
+                    label="Address"
+                    name="address"
+                    onChange={(e) => setSellerAddress(e.target.value)}
+                  />
+                  {errors[`address${index}`] && <FormHelperText error>{errors[`address${index}`]}</FormHelperText>}
+                </FormControl>
+                      
+                <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                  <TextField
+                    
+                    label="CNIC"
+                    name="cnic"
+                    onChange={(e) => setSellerCNIC(e.target.value)}
+                  />
+                  {errors[`cnic${index}`] && <FormHelperText error>{errors[`cnic${index}`]}</FormHelperText>}
+                </FormControl>  
+                </>
+              )}
+              {sellerType === 'saved' && (
+                <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+                  <Autocomplete
+                    options={savedSellers}
+                    getOptionLabel={(option) => option.SellerName || ''}
+                    value={selectedSeller}
+                    onChange={handleSavedSellerChange}
+                    renderInput={(params) => <TextField {...params} label="Select Saved Seller" />}
+                    renderOption={(props, option) => (
+                      <li {...props} key={option.id}>
+                        {option.SellerName}
+                      </li>
+                    )}
+                  />
+                  {errors[`sellerInfo${index}`] && <FormHelperText error>{errors[`sellerInfo${index}`]}</FormHelperText>}
+                </FormControl>
+                )}
+            </Box>
+            <DialogActions sx={{ padding: 2 }}>
+        {/* Conditionally render buttons */}
+        {currentStep < stockQuantity - 1 ? (
+          <Button variant="contained" color="primary" onClick={handleNextClick}>
+            Next
+          </Button>
+        ) : (
+          <Button type="submit" variant="contained" color="primary" onClick={handleSubmit}>
+            Add Bikes
+          </Button>
+        )}
+      </DialogActions>
+        </Box>
+
+      ))}
+      </Box>
+
+    </Modal> 
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
+          {successMessage}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'Right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
+    </div>
+  );
+};
+export default AddBike;
