@@ -330,7 +330,7 @@ const BikeCreditModal = ({ open, onClose, bikeData, agent, clientDetails, priceD
       currentY += spacing;
 
       addField("Balance:", `₨${priceDetails?.balance?.toLocaleString() || "N/A"}`, 0);
-      addField("Profit:", `₨${priceDetails?.profit?.toLocaleString() || "N/A"}`, 90);
+      // addField("Profit:", `₨${priceDetails?.profit?.toLocaleString() || "N/A"}`, 90);
     
       currentY += spacing * 2;
       checkPageBreak();
