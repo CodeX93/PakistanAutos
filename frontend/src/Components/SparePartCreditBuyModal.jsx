@@ -18,6 +18,15 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
     phone: "", 
     address: "" 
   });
+  const [errors, setErrors] = useState({
+    promisedDate: '',
+    trustedPersonName: '',
+    trustedPersonCnic: '',
+    trustedPersonPhone: '',
+    trustedPersonAddress: '',
+    paymentAmount: '',
+    payments: ''
+  });
   
   // Calculate the paid amount
   const paidAmount = paymentsReceived.reduce((total, payment) => total + Number(payment.paymentAmount), 0);
@@ -34,33 +43,104 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
   };
 
   const handleSave = async () => {
-    const data = {
-      products,
-      purchaserDetails,
-      addType,
-      clientDetails: purchaserDetails, // Assuming clientDetails are same as purchaserDetails
-      trustedPerson,
-      paymentsReceived,
-      promisedDate,
-      paidAmount,
-    };
-
+    const newErrors = {};
+    // Validate required fields
+    if (!promisedDate) {
+      console.error("Promised date is required");
+      return;
+    }
+  
+    if (!trustedPerson.name || !trustedPerson.cnic || !trustedPerson.phone || !trustedPerson.address) {
+      console.error("All trusted person details are required");
+      return;
+    }
+  
+    if (paymentsReceived.length === 0) {
+      console.error("At least one payment is required");
+      return;
+    }
+  
+    if (!products || products.length === 0) {
+      console.error("Products are required");
+      return;
+    }
+  
     try {
+      // Calculate total amount from products
+      const total = products.reduce((acc, product) => 
+        acc + (product.unitSellingPrice || product.unitPrice) * product.quantity, 0
+      );
+  
+      // Format products data
+      const formattedProducts = products.map(product => ({
+        productName: product.productName,
+        category: product.category,
+        condition: product.condition,
+        quantity: Number(product.quantity),
+        unitPrice: Number(product.unitPrice),
+        unitSellingPrice: Number(product.unitSellingPrice || product.unitPrice)
+      }));
+  
+      // Format payments data
+      const formattedPayments = paymentsReceived.map(payment => ({
+        paymentAmount: Number(payment.paymentAmount),
+        paymentMode: payment.paymentMode,
+        paymentDate: payment.paymentDate
+      }));
+  
+      // Create request body
+      const requestBody = {
+        products: formattedProducts,
+        purchaserDetails: {
+          name: purchaserDetails.name,
+          contactNo: purchaserDetails.contactNo,
+          cnic: purchaserDetails.cnic,
+          address: purchaserDetails.address
+        },
+        addType: "Spare Part",
+        clientDetails: {
+          name: purchaserDetails.name,
+          contactNo: purchaserDetails.contactNo,
+          cnic: purchaserDetails.cnic,
+          address: purchaserDetails.address
+        },
+        trustedPerson: {
+          name: trustedPerson.name,
+          cnic: trustedPerson.cnic,
+          phone: trustedPerson.phone,
+          address: trustedPerson.address
+        },
+        paymentsReceived: formattedPayments,
+        promisedDate,
+        paidAmount: Number(paidAmount),
+        total: Number(total)
+      };
+  
+      // Send request to API
       const response = await fetch(`${url}/SparePartCreditBuy/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
-
-      if (response.ok) {
-        console.log("Purchase created successfully");
-        generateInvoice(data)
-        onClose();
-      } else {
-        console.error("Error creating purchase:", response.statusText);
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create credit purchase');
       }
+  
+      const result = await response.json();
+      console.log("Credit purchase created successfully:", result);
+  
+      // Generate invoice with the same data
+      generateInvoice(requestBody);
+  
+      // Close modal and reset form
+      onClose();
     } catch (error) {
-      console.error("Error creating purchase:", error);
+      console.error("Error creating credit purchase:", error.message);
+      // You might want to show an error message to the user here
     }
   };
 
@@ -354,6 +434,7 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
       <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
         Total Paid: <span style={{ color: '#279508' }}>Rs. {paidAmount}</span>
       </Typography>
+   
     </Box>
   </DialogContent>
   <DialogActions>
@@ -365,6 +446,7 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
     </Button>
   </DialogActions>
 </Dialog>
+
 
   );
 };
