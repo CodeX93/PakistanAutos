@@ -21,6 +21,19 @@ SparePartRouter
 
 dotenv.config();
 
+
+import path from 'path';
+
+// Serve React build files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'client', 'build')));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+  });
+}
+
+
 const app = express();
 const corsOptions = {
     origin: 'http://localhost:3000', // Replace with your React app's URL
