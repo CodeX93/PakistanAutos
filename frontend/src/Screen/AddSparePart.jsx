@@ -215,6 +215,7 @@ const AddSparePart = () => {
         unitPrice: '',
         quantity: '',
         total: '',
+        warranty:''
       }]);
       
     } catch (error) {
@@ -480,6 +481,19 @@ const AddSparePart = () => {
                       Total: {product.total}
                     </Typography>
                   </Grid>
+                  <Grid item xs={12} sm={6}>
+                <TextField
+                    type="text"
+                    multiline  // Makes it a textarea
+                    rows={4}   // Number of visible rows
+                    fullWidth
+                    label="Warranty"
+                    name="Warranty"
+                    value={product.warranty || ''} // Use optional chaining to prevent accessing undefined
+                    onChange={(e) => handleProductChange(index, 'warranty', e.target.value)}
+                    
+                  />
+              </Grid>
 
                   {products.length > 1 && (
                     <Grid item xs={12} style={{ textAlign: 'right' }}>

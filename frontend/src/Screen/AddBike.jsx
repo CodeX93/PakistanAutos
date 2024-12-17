@@ -313,35 +313,52 @@ const [errors, setErrors] = useState({});
         modelYear,
         stockQuantity,
         purchaseDate,
-        bikeEntries: bikeEntries.map((entry) => ({
-          ...entry,
-          sellerInfo: sellerInformation,
-          type: bikeModelObject.type,
-          ...(bikeModelObject.type === "Non-Electric" && {
-            cc: bikeModelObject.power.cc || "NA",
-            stroke: bikeModelObject.engine.stroke || "NA",
-          }),
-          ...(bikeModelObject.type === "Electric" && {
-            power: bikeModelObject.power.watt || "NA",
-            range: bikeModelObject.range || "NA",
-            battery: bikeModelObject.power.battery || "NA",
-          }),
-        })),
+        
+        bikeEntries: bikeEntries.map((entry) => {
+          const baseEntry = {
+            ...entry,
+            sellerInfo: sellerInformation,
+            warranty: entry.warranty || bikeModelObject.warranty, 
+
+            type: selectedType,
+          };
+  
+          // Add type-specific fields
+          if (selectedType === "Electric") {
+            // Extract battery details from the bike model
+            const batteryDetails = bikeModelObject.power?.battery || {};
+            return {
+              ...baseEntry,
+              power: bikeModelObject.power?.watt || "NA",
+              range: bikeModelObject.range || "NA",
+              batteryDetails: {
+                capacity: batteryDetails.capacity || "NA",
+                quantity: batteryDetails.quantity || 1,
+                volts: batteryDetails.volts || "NA",
+                amperes: batteryDetails.amperes || "NA"
+              }
+            };
+          } else {
+            return {
+              ...baseEntry,
+              cc: bikeModelObject.power?.cc || "NA",
+              stroke: bikeModelObject.engine?.stroke || "NA"
+            };
+          }
+        }),
       },
     };
   
-    console.log(requestBody)
+    console.log("Request body:", requestBody); // For debugging
+  
     fetch(`${url}/bikeinventory/addBikeToInventory`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
-
     })
       .then((response) => {
-        console.log(response)
-
         if (!response.ok) {
           return response.json().then((errData) => {
             throw new Error(`Failed to add bikes: ${errData.message || response.status}`);
@@ -352,6 +369,7 @@ const [errors, setErrors] = useState({});
       .then((data) => {
         console.log("Success:", data);
         setSuccessMessage("Bike added successfully!");
+        setOpen(false); // Close the modal on success
       })
       .catch((error) => {
         console.error("Error:", error);
@@ -366,9 +384,8 @@ const [errors, setErrors] = useState({});
     const { name, value } = e.target;
     const newEntries = [...bikeEntries];
   
-    // Ensure the entry is initialized before setting its properties
     if (!newEntries[index]) {
-      newEntries[index] = {}; // Initialize if undefined
+      newEntries[index] = {};
     }
   
     // Prevent negative values for mileage
@@ -972,8 +989,25 @@ const handleConditionChange = (index, value) => {
                   {errors[`sellerInfo${index}`] && <FormHelperText error>{errors[`sellerInfo${index}`]}</FormHelperText>}
                 </FormControl>
                 )}
+<FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
+  <TextField
+    type="text"
+    multiline
+    rows={4}
+    fullWidth
+    label="Warranty"
+    name="warranty"
+    value={bikeEntries[index]?.warranty || bikeModels.find(model => model.modelName === selectedModel)?.warranty || ''}
+    onChange={(e) => handleEntryChange(index, e)}
+    placeholder="Enter warranty details..."
+    sx={{
+      backgroundColor: '#ffffff'  // Changed from #f5f5f5 to show it's editable
+    }}
+  />
+</FormControl>
             </Box>
             <DialogActions sx={{ padding: 2 }}>
+           
         {/* Conditionally render buttons */}
         {currentStep < stockQuantity - 1 ? (
           <Button variant="contained" color="primary" onClick={handleNextClick}>

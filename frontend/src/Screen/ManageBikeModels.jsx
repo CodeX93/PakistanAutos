@@ -107,28 +107,51 @@ useEffect(() => {
 }, []);
 
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (name.includes('engine') || name.includes('power')) {
-      const [category, field] = name.split('.');
+const handleInputChange = (e) => {
+  const { name, value } = e.target;
+  
+  if (name.includes('.')) {
+    const [category, field, subfield] = name.split('.');
+    
+    if (subfield) {
+      // Handle nested battery properties
       setBikeDetails((prev) => ({
         ...prev,
         [category]: {
           ...prev[category],
-          [field]: value,
-        },
+          [field]: {
+            ...prev[category]?.[field],
+            [subfield]: value
+          }
+        }
       }));
     } else {
-      setBikeDetails((prev) => ({ ...prev, [name]: value }));
-    }
-    if (name === 'manufacturer') {
-      const selectedManufacturer = manufacturers.find((m) => m.id === value);
+      // Handle engine and other power properties
       setBikeDetails((prev) => ({
         ...prev,
-        manufacturerName: selectedManufacturer ? selectedManufacturer.name : '',
+        [category]: {
+          ...prev[category],
+          [field]: value
+        }
       }));
     }
-  };
+  } else {
+    // Handle top-level properties
+    setBikeDetails((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  }
+
+  // Handle manufacturer selection
+  if (name === 'manufacturer') {
+    const selectedManufacturer = manufacturers.find((m) => m.id === value);
+    setBikeDetails((prev) => ({
+      ...prev,
+      manufacturerName: selectedManufacturer ? selectedManufacturer.name : '',
+    }));
+  }
+};
 
 
 
@@ -137,14 +160,24 @@ useEffect(() => {
     
     const { modelName, type, manufacturerYear, manufacturer, manufacturerName, range, power, engine } = bikeDetails;
     
+    // Basic validation for common fields
     if (!modelName || !type || !manufacturerYear || !manufacturerName || !manufacturer) {
       setError('All required fields must be provided.');
       return;
     }
-    if (type === 'Electric' && (!range || !power.battery || !power.watt)) {
-      setError('Range, Battery, and Power in Watt are required for electric bikes.');
-      return;
+  
+    // Validation for electric bike specific fields
+    if (type === 'Electric') {
+      const batteryDetails = power?.battery;
+      if (!range || !power.watt || !batteryDetails?.capacity || 
+          !batteryDetails?.quantity || !batteryDetails?.volts || 
+          !batteryDetails?.amperes) {
+        setError('For electric bikes, please provide all details: Range, Battery (Capacity, Quantity, Voltage, Current), and Power in Watt.');
+        return;
+      }
     }
+  
+    // Validation for non-electric bike specific fields
     if (type === 'Non-Electric' && (!power.cc || !engine.stroke)) {
       setError('Engine Capacity (CC) and Stroke are required for non-electric bikes.');
       return;
@@ -161,7 +194,12 @@ useEffect(() => {
         stroke: type === 'Non-Electric' ? engine.stroke : undefined,
       },
       power: {
-        battery: type === 'Electric' ? power.battery : undefined,
+        battery: type === 'Electric' ? {
+          capacity: power.battery.capacity,
+          quantity: power.battery.quantity,
+          volts: power.battery.volts,
+          amperes: power.battery.amperes
+        } : undefined,
         cc: type === 'Non-Electric' ? power.cc : undefined,
         watt: type === 'Electric' ? power.watt : undefined,
       },
@@ -189,23 +227,29 @@ useEffect(() => {
       setError('Error adding bike model.');
     }
   };
-
+  
   const handleEditModelSubmit = async (e) => {
     e.preventDefault();
-
-
-    const { modelName, type, manufacturerYear,manufacturer, manufacturerName, range, power, engine } = bikeDetails;
-
-
-    if (type === 'Electric' && (!range || !power.battery || !power.watt)) {
-      setError('Range, Battery, and Power in Watt are required for electric bikes.');
-      return;
+  
+    const { modelName, type, manufacturerYear, manufacturer, manufacturerName, range, power, engine } = bikeDetails;
+  
+    // Validation for electric bike specific fields
+    if (type === 'Electric') {
+      const batteryDetails = power?.battery;
+      if (!range || !power.watt || !batteryDetails?.capacity || 
+          !batteryDetails?.quantity || !batteryDetails?.volts || 
+          !batteryDetails?.amperes) {
+        setError('For electric bikes, please provide all details: Range, Battery (Capacity, Quantity, Voltage, Current), and Power in Watt.');
+        return;
+      }
     }
+  
+    // Validation for non-electric bike specific fields
     if (type === 'Non-Electric' && (!power.cc || !engine.stroke)) {
       setError('Engine Capacity (CC) and Stroke are required for non-electric bikes.');
       return;
     }
-
+  
     const requestBody = {
       modelName,
       type,
@@ -217,26 +261,29 @@ useEffect(() => {
         stroke: type === 'Non-Electric' ? engine.stroke : undefined,
       },
       power: {
-        battery: type === 'Electric' ? power.battery : undefined,
+        battery: type === 'Electric' ? {
+          capacity: power.battery.capacity,
+          quantity: power.battery.quantity,
+          volts: power.battery.volts,
+          amperes: power.battery.amperes
+        } : undefined,
         cc: type === 'Non-Electric' ? power.cc : undefined,
         watt: type === 'Electric' ? power.watt : undefined,
       },
       range: type === 'Electric' ? range : undefined,
     };
+  
     try {
       const response = await fetch(`${url}/bikemodel/update/${originalManufacturerId}/${type}/${modelId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
-
+  
       const result = await response.json();
-
+  
       if (response.ok) {
-        // const updatedModels = models.map((model) => (model.modelId === modelId ? { ...bikeDetails, id: result.modelId } : model));
-        // setModels(updatedModels);
-        await fetchModels(); // This will update the state with the latest data
-
+        await fetchModels();
         setSuccessMessage('Model updated successfully');
         setOpen(false);
       } else {
@@ -247,7 +294,7 @@ useEffect(() => {
       setError('Error updating bike model.');
     }
   };
-
+  
   const handleAddOrEditModel = async (event) => {
     event.preventDefault();
     if (isEditing) {
@@ -258,12 +305,9 @@ useEffect(() => {
     handleCloseDialog();
   };
   
-  
-  
-
   const handleCloseDialog = () => {
     setOpen(false);
-    resetFields(); 
+    resetFields();
   };
   
   const resetFields = () => {
@@ -278,7 +322,12 @@ useEffect(() => {
         stroke: '',
       },
       power: {
-        battery: '',
+        battery: {
+          capacity: '',
+          quantity: '',
+          volts: '',
+          amperes: ''
+        },
         cc: '',
         watt: '',
       },
@@ -287,7 +336,6 @@ useEffect(() => {
     setModelId(null);
   };
   
-  
   const handleAddModel = () => {
     setIsEditing(false);
     setBikeDetails({
@@ -295,60 +343,83 @@ useEffect(() => {
       type: '',
       manufacturer: '',
       manufacturerYear: '',
+      manufacturerName: '',
       range: '',
-      power: { battery: '', watt: '', cc: '' },
-      engine: { stroke: '' }
+      power: {
+        battery: {
+          capacity: '',
+          quantity: '',
+          volts: '',
+          amperes: ''
+        },
+        watt: '',
+        cc: ''
+      },
+      engine: {
+        power: '',
+        stroke: ''
+      }
     });
     setOpen(true);
   };
-
+  
   const handleEditModel = (modelId, modelName, type, manufacturer, manufacturerYear, manufacturerName, engine, power, range) => {
-    setModelId(modelId); // Ensure this uses the correct field name
-    setOriginalManufacturerId(manufacturer); // Store original manufacturer ID
+    setModelId(modelId);
+    setOriginalManufacturerId(manufacturer);
     setBikeDetails({
       modelName: modelName || '',
       type: type || '',
-      manufacturer: manufacturer || '', // For display, we can still use `manufacturer`
+      manufacturer: manufacturer || '',
       manufacturerYear: manufacturerYear || '',
+      manufacturerName: manufacturerName || '',
       range: range || '',
-      power: power || { battery: '', watt: '', cc: '' },
-      engine: engine || { stroke: '' },
+      power: {
+        battery: power?.battery ? {
+          capacity: power.battery.capacity || '',
+          quantity: power.battery.quantity || '',
+          volts: power.battery.volts || '',
+          amperes: power.battery.amperes || ''
+        } : {
+          capacity: '',
+          quantity: '',
+          volts: '',
+          amperes: ''
+        },
+        watt: power?.watt || '',
+        cc: power?.cc || ''
+      },
+      engine: engine || { power: '', stroke: '' }
     });
   
     setIsEditing(true);
     setOpen(true);
   };
-
- 
   
-
   const handleCloseSnackbar = () => {
     setError(null);
     setSuccessMessage('');
-  };    
-
-const handleDeleteModel = async (manufacturerId, type, modelId) => {
-  const isConfirmed = window.confirm("Are you sure you want to delete this model?");
-  if (!isConfirmed) return;
-
-
-
-  try {
-    const response = await fetch(`${url}/bikemodel/delete/${manufacturerId}/${type}/${modelId}`, {
-      method: 'DELETE',
-    });
-
-    if (response.ok) {
-      setSuccessMessage("Deleted Successfully!");
-      setModels(models.filter((model) => model.modelId !== modelId));
-    } else {
-      alert('Failed to delete bike model.');
+  };
+  
+  const handleDeleteModel = async (manufacturerId, type, modelId) => {
+    const isConfirmed = window.confirm("Are you sure you want to delete this model?");
+    if (!isConfirmed) return;
+  
+    try {
+      const response = await fetch(`${url}/bikemodel/delete/${manufacturerId}/${type}/${modelId}`, {
+        method: 'DELETE',
+      });
+  
+      if (response.ok) {
+        setSuccessMessage("Deleted Successfully!");
+        setModels(models.filter((model) => model.modelId !== modelId));
+      } else {
+        alert('Failed to delete bike model.');
+      }
+    } catch (error) {
+      console.error('Error deleting bike model:', error);
+      alert('Error deleting bike model.');
     }
-  } catch (error) {
-    console.error('Error deleting bike model:', error);
-    alert('Error deleting bike model.');
-  }
-};
+  };
   
 
    const filteredModels=models.filter((model) =>
@@ -671,36 +742,63 @@ const handleDeleteModel = async (manufacturerId, type, modelId) => {
 
                       {/* Electric Fields */}
                       {bikeDetails.type === 'Electric' && (
-                        <>
-                          <TextField
-                            fullWidth
-                            label="Range (km)"
-                            variant="outlined"
-                            name="range"
-                            value={bikeDetails.range}
-                            onChange={handleInputChange}
-                            margin="normal"
-                          />
-                          <TextField
-                            fullWidth
-                            label="Battery Capacity (kWh)"
-                            variant="outlined"
-                            name="power.battery"
-                            value={bikeDetails.power?.battery || ''}
-                            onChange={handleInputChange}
-                            margin="normal"
-                          />
-                          <TextField
-                            fullWidth
-                            label="Power (Watt)"
-                            variant="outlined"
-                            name="power.watt"
-                            value={bikeDetails.power?.watt || ''}
-                            onChange={handleInputChange}
-                            margin="normal"
-                          />
-                        </>
-                      )}
+  <>
+    <TextField
+      fullWidth
+      label="Range (km)"
+      variant="outlined"
+      name="range"
+      value={bikeDetails.range}
+      onChange={handleInputChange}
+      margin="normal"
+    />
+    <TextField
+      fullWidth
+      label="Battery Quantity"
+      variant="outlined"
+      name="power.battery.quantity"
+      value={bikeDetails.power?.battery?.quantity || ''}
+      onChange={handleInputChange}
+      margin="normal"
+    />
+    <TextField
+      fullWidth
+      label="Battery Voltage (V)"
+      variant="outlined"
+      name="power.battery.volts"
+      value={bikeDetails.power?.battery?.volts || ''}
+      onChange={handleInputChange}
+      margin="normal"
+    />
+    <TextField
+      fullWidth
+      label="Battery Current (A)"
+      variant="outlined"
+      name="power.battery.amperes"
+      value={bikeDetails.power?.battery?.amperes || ''}
+      onChange={handleInputChange}
+      margin="normal"
+    />
+    <TextField
+      fullWidth
+      label="Battery Capacity (kWh)"
+      variant="outlined"
+      name="power.battery.capacity"
+      value={bikeDetails.power?.battery?.capacity || ''}
+      onChange={handleInputChange}
+      margin="normal"
+    />
+    <TextField
+      fullWidth
+      label="Power (Watt)"
+      variant="outlined"
+      name="power.watt"
+      value={bikeDetails.power?.watt || ''}
+      onChange={handleInputChange}
+      margin="normal"
+    />
+  </>
+)}
 
                       {/* Non-Electric Fields */}
                       {bikeDetails.type === 'Non-Electric' && (

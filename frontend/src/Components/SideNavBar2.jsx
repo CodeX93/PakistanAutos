@@ -158,7 +158,7 @@ function ModernNavigation2() {
     },
     {
       id: 'inventory',
-      text: 'Inventory',
+      text: 'Stock',
       icon: <Inventory />,
       children: [
         {

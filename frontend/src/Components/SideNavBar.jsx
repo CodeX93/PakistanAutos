@@ -60,12 +60,12 @@ import ManageSparePartSellers from '../Screen/ManageSparePartSeller';
 import SaleSparePart from '../Screen/SaleSparePart';
 import MyLedger from '../Screen/MyLedger';
 import SoldSparePartsSalesInventory from '../Screen/SoldSparePart';
-import WarrantyClaimsScreen from '../Screen/WarrantyClaimsScreen';
 import SparePartCreditBuys from '../Screen/SparePartCreditBuys';
 import BikeCreditBuys from '../Screen/BikeCreditBuys';
 import Expense from '../Screen/Expense';
 import SoldMotorcycles from '../Screen/soldMotorcycle';
 import SoldSparePart from '../Screen/soldSpare';
+import ManageLocalCreditBuys from "../Screen/ManageLocalCreditBuys"
 
 
 
@@ -186,7 +186,7 @@ function ModernNavigation() {
     },
     {
       id: 'inventory',
-      text: 'Inventory',
+      text: 'Stock',
       icon: <Inventory />,
       children: [
         {
@@ -224,12 +224,12 @@ function ModernNavigation() {
     },
     {
       id: 'catalog',
-      text: 'Product Catalog',
+      text: 'Purchasing',
       icon: <Engineering />,
       children: [
         {
           id: 'motorcycleManagement',
-          text: 'Motorcycle Management',
+          text: 'Motorcycle Purchasing',
           icon: <BikeScooter />,
           children: [
             {
@@ -253,13 +253,13 @@ function ModernNavigation() {
           ],
         },
         {
-          text: 'Parts Management',
+          text: 'Parts Purchasing',
           icon: <Build />,
           children: [
        
             {
               id: 'addSparePart',
-              text: 'Add Spare Part',
+              text: 'Add Part',
               icon: <AddCircleOutlineTwoTone />,
               path: '/admindashboard/catalog/addSparePart'
             }
@@ -285,25 +285,6 @@ function ModernNavigation() {
       ]
     },
     {
-      id: 'warranty',
-      text: 'Warranty',
-      icon: <Shield />,
-      children: [
-        {
-          id: 'newClaim',
-          text: 'New Claim',
-          icon: <Assignment />,
-          path: '/admindashboard/warranty/newClaim',
-        },
-        {
-          id: 'viewClaims',
-          text: 'View Claims',
-          icon: <Assignment />,
-          path: '/admindashboard/warranty/viewClaims',
-        },
-      ],
-    },
-    {
       id: 'creditBuys',
       text: 'Credit Buys',
       icon: <AccountBalanceWalletIcon />,
@@ -319,6 +300,12 @@ function ModernNavigation() {
           text: 'Spare Parts',
           icon: <Build />,
           path: '/admindashboard/creditbuys/spareparts',
+        },
+        {
+          id: 'localCreditBuys',
+          text: 'Local Credit Buy',
+          icon: <Build />,
+          path: '/admindashboard/creditbuys/localbuy',
         },
       ],
     },
@@ -416,7 +403,8 @@ function ModernNavigation() {
     <ThemeProvider theme={theme}>
       <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
         {/* AppBar */}
-<StyledAppBar position="fixed" open={open} >
+
+      <StyledAppBar position="fixed" open={open} >
               <Toolbar>
                 {!open && (
                   <IconButton
@@ -516,14 +504,10 @@ function ModernNavigation() {
               <Route path='/admindashboard/sales/sellMotorcycle' element={<SaleNow/>}/>
               <Route path='/admindashboard/sales/sellParts' element={<SaleSparePart/>}/>
 
-              {/* Warranty */}
-              <Route path="/admindashboard/warranty/newClaim" element={<SoldSparePartsSalesInventory />} />
-              <Route path="/admindashboard/warranty/viewClaims" element={<WarrantyClaimsScreen />} />
-
               {/* Credit Buys */}
               <Route path="/admindashboard/creditbuys/bike" element={<BikeCreditBuys />} />
               <Route path="/admindashboard/creditbuys/spareparts" element={<SparePartCreditBuys />} />
-
+<Route path ='/admindashboard/creditbuys/localbuy' element={<ManageLocalCreditBuys/>}/>
               {/* Business Partners */}
               <Route path="/admindashboard/partners/bikeSellers" element={<ManageBikeSellers />} />
               <Route path="/admindashboard/partners/bikeAgents" element={<ManageBikeAgents />} />
@@ -532,10 +516,7 @@ function ModernNavigation() {
               {/* Finance */}
               <Route path="/admindashboard/finance/expenses" element={<Expense />} />
               <Route path="/admindashboard/finance/dailyBook" element={<MyLedger />} />
-
-              {/* Settings */}
-              
-
+             
               {/* Default Route */}
               <Route path="*" element={<HomeScreen />} />
             </Routes>
