@@ -69,13 +69,18 @@ const SoldMotorcycles = () => {
   useEffect(() => {
     const filtered = inventory.filter((sale) => {
       const searchString = searchTerm.toLowerCase();
+      const isElectric = sale?.bikeDetails?.type === 'Electric';
       
-      const chassisNumber = sale?.bikeDetails?.chassisNumber?.toLowerCase() || '';
       const manufacturer = sale?.bikeDetails?.manufacturer?.toLowerCase() || '';
       const model = sale?.bikeDetails?.model?.toLowerCase() || '';
-  
+      
+      // Search by appropriate identification numbers based on bike type
+      const idNumbers = isElectric 
+        ? `${sale?.bikeDetails?.motorNo?.toLowerCase() || ''} ${sale?.bikeDetails?.frameNo?.toLowerCase() || ''}`
+        : `${sale?.bikeDetails?.engineNo?.toLowerCase() || ''} ${sale?.bikeDetails?.chassisNumber?.toLowerCase() || ''}`;
+    
       return (
-        chassisNumber.includes(searchString) ||
+        idNumbers.includes(searchString) ||
         manufacturer.includes(searchString) ||
         model.includes(searchString)
       );
@@ -202,24 +207,24 @@ const handleRevertSale = async (id) => {
         </Typography>
 
         <TextField
-          label="Search by Model, Chasis or Manufacturer"
-          variant="outlined"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            width: '300px', 
-            backgroundColor: theme.palette.background.paper,
-            borderRadius: '12px',
-            marginTop:'5px  '
-          }}
-        />
+  label="Search by Model, Manufacturer, or Identification Numbers"
+  variant="outlined"
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  InputProps={{
+    startAdornment: (
+      <InputAdornment position="start">
+        <SearchIcon />
+      </InputAdornment>
+    ),
+  }}
+  sx={{
+    width: '400px', // Increased width for longer label
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: '12px',
+    marginTop:'5px'
+  }}
+/>
       </Box>
 
       {inventory.length === 0 ? (
@@ -234,8 +239,8 @@ const handleRevertSale = async (id) => {
                     Serial No
                   </TableCell>
                   <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>
-                    Chassis No
-                  </TableCell>
+  Identification Numbers
+</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>
                     Manufacturer
                   </TableCell>
@@ -255,7 +260,19 @@ const handleRevertSale = async (id) => {
                   currentPageData.map((sale, index) => (
                     <TableRow key={sale.id || index} sx={{ '&:hover': { backgroundColor: '#f5f5f5' } }}>
                       <TableCell>{startIndex + index + 1}</TableCell>
-                      <TableCell>{sale?.bikeDetails?.chassisNumber || 'N/A'}</TableCell>
+                      <TableCell>
+  {sale?.bikeDetails?.type === 'Electric' ? (
+    <>
+      Motor No: {sale?.bikeDetails?.motorNo || 'N/A'}<br />
+      Frame No: {sale?.bikeDetails?.frameNo || 'N/A'}
+    </>
+  ) : (
+    <>
+      Engine No: {sale?.bikeDetails?.engineNo || 'N/A'}<br />
+      Chassis No: {sale?.bikeDetails?.chassisNumber || 'N/A'}
+    </>
+  )}
+</TableCell>
                       <TableCell>{sale?.bikeDetails?.manufacturer || 'N/A'}</TableCell>
                       <TableCell>{sale?.bikeDetails?.model || 'N/A'}</TableCell>
                       <TableCell>
@@ -446,26 +463,62 @@ const handleRevertSale = async (id) => {
                 <Divider sx={{ marginBottom: "10px" }} />
 
                 <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
-                  <strong>Chassis Number:</strong> {saleData?.bikeDetails?.chassisNumber || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
-                  <strong>Condition:</strong> {saleData?.bikeDetails?.condition || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
-                  <strong>Manufacturer:</strong> {saleData?.bikeDetails?.manufacturer || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
-                  <strong>Mileage:</strong> {saleData?.bikeDetails?.mileage || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
-                  <strong>Model:</strong> {saleData?.bikeDetails?.model || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
-                  <strong>Purchase Price:</strong> {saleData?.bikeDetails?.purchasePrice || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
-                  <strong>Type:</strong> {saleData?.bikeDetails?.type || 'N/A'}
-                </Typography>
+ <strong>Type:</strong> {saleData?.bikeDetails?.type || 'N/A'}
+</Typography>
+
+{saleData?.bikeDetails?.type === 'Electric' ? (
+ <>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Motor Number:</strong> {saleData?.bikeDetails?.motorNo || 'N/A'}
+   </Typography>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Frame Number:</strong> {saleData?.bikeDetails?.frameNo || 'N/A'}
+   </Typography>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Power:</strong> {saleData?.bikeDetails?.power || 'N/A'} W
+   </Typography>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Range:</strong> {saleData?.bikeDetails?.range || 'N/A'} km
+   </Typography>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Battery Capacity:</strong> {saleData?.bikeDetails?.batteryDetails?.capacity || 'N/A'} Ah
+   </Typography>
+ </>
+) : (
+ <>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Engine Number:</strong> {saleData?.bikeDetails?.engineNo || 'N/A'}
+   </Typography>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Chassis Number:</strong> {saleData?.bikeDetails?.chassisNumber || 'N/A'} 
+   </Typography>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>CC:</strong> {saleData?.bikeDetails?.cc || 'N/A'}
+   </Typography>
+   <Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+     <strong>Stroke:</strong> {saleData?.bikeDetails?.stroke || 'N/A'}
+   </Typography>
+ </>
+)}
+
+<Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+ <strong>Manufacturer:</strong> {saleData?.bikeDetails?.manufacturer || 'N/A'}
+</Typography>
+<Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+ <strong>Model:</strong> {saleData?.bikeDetails?.model || 'N/A'}
+</Typography>
+<Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+ <strong>Condition:</strong> {saleData?.bikeDetails?.condition || 'N/A'}
+</Typography>
+<Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+ <strong>Mileage:</strong> {saleData?.bikeDetails?.mileage || 'N/A'}
+</Typography>
+<Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+ <strong>Purchase Price:</strong> Rs. {Number(saleData?.bikeDetails?.purchasePrice || 0).toLocaleString()}
+</Typography>
+<Typography variant="body2" sx={{ fontSize: '13px', marginBottom: '8px' }}>
+ <strong>Warranty:</strong> {saleData?.bikeDetails?.warranty || 'N/A'}
+</Typography>
               </Card>
             </Grid>
 

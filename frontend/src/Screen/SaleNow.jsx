@@ -25,9 +25,9 @@ import {
 } from '@mui/material';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
-
+import { Checkbox } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { Search, DirectionsBike, AttachMoney, Assignment, Person } from '@mui/icons-material';
+import { Search, DirectionsBike, AttachMoney, Assignment, Person,  Build, } from '@mui/icons-material';
 import BikeCreditModal from '../Components/BikeCreditBuyModal';
 import { jsPDF } from "jspdf";
 import logoData from '../Asset/Images/PakistanAutoLogo-bgRemoved.png';
@@ -80,6 +80,9 @@ const BikeSearch = () => {
   const [agent, setAgent] = useState('');
   const [agents, setAgents] = useState([]);
   const [agentSelection, setAgentSelection] = useState('saved');
+  const [searchNumber, setSearchNumber] = useState('');
+  const [warranty, setWarranty] = useState('');
+const [issueWarrantyBook, setIssueWarrantyBook] = useState(false);
   const [manualAgentInfo, setManualAgentInfo] = useState({
     name: '',
     cnic: '',
@@ -206,27 +209,58 @@ const updateBalance = (method, value) => {
 
 
   const handleSearch = () => {
-    if (!chassisNumber) {
-      setError('Please provide a chassis number.');
+    if (!searchNumber) {
+      setError('Please provide an identification number.');
       return;
     }
   
-    // Reset fields before fetching new bike data
     resetFormFields();
-  
     setLoading(true);
     setError('');
-    fetch(`${url}/bikeinventory/getBikeByChassisNumber/${chassisNumber}`)
+    
+    fetch(`${url}/bikeinventory/getBikeByChassisNumber/${searchNumber}`)
       .then((response) => response.json())
       .then((data) => {
         if (data.bikes && data.bikes.length > 0) {
-          setBikeData(data.bikes[0]);
+          const foundBike = data.bikes[0];
+          setBikeData(foundBike);
+          
+          // Set the appropriate identification number based on what matched
+          let idNumber = '';
+          switch(foundBike.searchMatchedOn) {
+            case 'motorNo':
+              idNumber = foundBike.motorNo;
+              break;
+            case 'frameNo':
+              idNumber = foundBike.frameNo;
+              break;
+            case 'engineNo':
+              idNumber = foundBike.engineNo;
+              break;
+            case 'chassisNumber':
+              idNumber = foundBike.chassisNumber;
+              break;
+            default:
+              idNumber = searchNumber;
+          }
+          setChassisNumber(idNumber);
+  
+          // Show success message with which field matched
+          setSnackbarMessage(`Bike found by ${foundBike.searchMatchedOn}`);
+          setSnackbarSeverity('success');
+          setSnackbarOpen(true);
         } else {
-          setError('Bike not found.');
+          setError('No bike found with the provided identification number.');
           setBikeData(null);
+          setChassisNumber('');
         }
       })
-      .catch(() => setError('An error occurred while fetching bike data.'))
+      .catch((error) => {
+        console.error('Error searching bike:', error);
+        setError('An error occurred while fetching bike data.');
+        setBikeData(null);
+        setChassisNumber('');
+      })
       .finally(() => setLoading(false));
   };
   
@@ -234,7 +268,6 @@ const updateBalance = (method, value) => {
 
   const handleProceed = async () => {
     try {
-      // Construct the sales data
       const newSales = {
         agent: agentSelection === 'saved' ? selectedAgent : manualAgentInfo,
         bikeDetails: {
@@ -244,7 +277,31 @@ const updateBalance = (method, value) => {
           condition: bikeData?.condition,
           mileage: bikeData?.mileage,
           purchasePrice: bikeData?.purchasePrice,
-          chassisNumber,
+          warranty: bikeData?.warranty || 'N/A',
+        warrantyBookIssued: issueWarrantyBook,
+          // Add all identification numbers
+          ...(bikeData?.type === 'Electric' 
+            ? {
+                motorNo: bikeData.motorNo,
+                frameNo: bikeData.frameNo,
+              }
+            : {
+                engineNo: bikeData.engineNo,
+                chassisNumber: bikeData.chassisNumber,
+              }
+          ),
+          // Add additional type-specific details
+          ...(bikeData?.type === 'Electric' 
+            ? {
+                power: bikeData.power,
+                range: bikeData.range,
+                batteryDetails: bikeData.batteryDetails,
+              }
+            : {
+                cc: bikeData.cc,
+                stroke: bikeData.stroke,
+              }
+          ),
         },
         priceDetails: {
           sellingPrice,
@@ -264,6 +321,8 @@ const updateBalance = (method, value) => {
             address: clientAddress,
           },
         },
+      
+      
       };
   
       console.log("Sending sales data:", newSales);
@@ -486,18 +545,50 @@ const updateBalance = (method, value) => {
    currentY += spacing * 2;
    checkPageBreak();
  
-   // Bike Details
-   addSectionHeader("Bike Details");
-   addField("Manufacturer:", bikeDetails?.manufacturer || "N/A");
-   addField("Model:", bikeDetails?.model || "N/A", 90);
-   currentY += spacing;
-   addField("Type:", bikeDetails?.type || "N/A", 0);
-   addField("Chassis Number:", bikeDetails?.chassisNumber || "N/A",90);
-   currentY += spacing;
-   addField("Condition:", bikeDetails?.condition || "N/A", 0);
-   addField("Mileage:", bikeDetails?.mileage || "N/A", 90);
-   currentY += spacing * 2;
-   checkPageBreak();
+   // Updated Bike Details section in the invoice
+addSectionHeader("Bike Details");
+addField("Manufacturer:", bikeDetails?.manufacturer || "N/A");
+addField("Model:", bikeDetails?.model || "N/A", 90);
+currentY += spacing;
+addField("Type:", bikeDetails?.type || "N/A", 0);
+
+// Conditional rendering of identification numbers based on bike type
+if (bikeDetails?.type === 'Electric') {
+  addField("Motor Number:", bikeDetails?.motorNo || "N/A", 90);
+  currentY += spacing;
+  addField("Frame Number:", bikeDetails?.frameNo || "N/A", 0);
+} else {
+  addField("Engine Number:", bikeDetails?.engineNo || "N/A", 90);
+  currentY += spacing;
+  addField("Chassis Number:", bikeDetails?.chassisNumber || "N/A", 0);
+}
+
+currentY += spacing;
+addField("Condition:", bikeDetails?.condition || "N/A", 0);
+addField("Mileage:", bikeDetails?.mileage || "N/A", 90);
+currentY += spacing * 2;
+
+// Add type-specific details
+if (bikeDetails?.type === 'Electric') {
+  addField("Power:", `${bikeDetails?.power || 'N/A'} W`, 0);
+  addField("Range:", `${bikeDetails?.range || 'N/A'} km`, 90);
+  currentY += spacing;
+  addField("Battery Capacity:", `${bikeDetails?.batteryDetails?.capacity || 'N/A'} Ah`, 0);
+} else {
+  addField("CC:", bikeDetails?.cc || "N/A", 0);
+  addField("Stroke:", bikeDetails?.stroke || "N/A", 90);
+}
+
+currentY += spacing * 2;
+checkPageBreak();
+
+// Add Warranty Information
+addSectionHeader("Warranty Information");
+addField("Warranty Details:", bikeDetails?.warranty || "N/A", 0);
+currentY += spacing;
+addField("Warranty Book Issued:", bikeDetails?.warrantyBookIssued ? "Yes" : "No", 0);
+currentY += spacing ;
+checkPageBreak();
  
    // Payment Details
    addSectionHeader("Payment Details");
@@ -542,367 +633,613 @@ const updateBalance = (method, value) => {
 
   return (
     <>
-    <Box sx={{ padding: '20px', maxWidth: '1000px', margin: 'auto' }}>
-      <Typography variant="h4" sx={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
-        <DirectionsBike sx={{ marginRight: '10px' }} />
-        Bike Inventory Search
-      </Typography>
-
-      <Paper elevation={3} sx={{ padding: '20px', marginBottom: '20px' }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={8}>
-            <TextField
-              label="Chassis Number"
-              variant="outlined"
-              fullWidth
-              value={chassisNumber}
-              onChange={(e) => setChassisNumber(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleSearch}
-              disabled={loading}
-              fullWidth
-              startIcon={<Search />}
-            >
-              Search
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {loading && <CircularProgress sx={{ display: 'block', margin: '20px auto' }} />}
-
-      {error && <Typography color="error" sx={{ textAlign: 'center', marginBottom: '20px' }}>{error}</Typography>}
-
-      {bikeData && (
-  <Grid container spacing={4}>
-    {/* Bike Details */}
-    <Grid item xs={12} md={12}>
-      <Card
-        sx={{
-          boxShadow: 4,
-          borderRadius: 3,
-          padding: 3,
-          background: '#f1f8e9',
-          '&:hover': { boxShadow: 6 },
-        }}
-      >
-        <CardContent>
-          <Typography
-            variant="h5"
-            sx={{ color: '#388e3c', fontWeight: 'bold', textAlign: 'center', marginBottom: 2 }}
-          >
-            <DirectionsBike sx={{ fontSize: 30, marginRight: 1 }} />
-            Bike Details
-          </Typography>
-          <Divider sx={{ marginBottom: 3 }} />
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
+      <Box sx={{ padding: '20px', maxWidth: '1200px', margin: 'auto' }}>
+        {/* Header */}
+        <Typography variant="h4" sx={{ 
+          marginBottom: '20px', 
+          display: 'flex', 
+          alignItems: 'center',
+          color: '#388e3c',
+          fontWeight: 'bold' 
+        }}>
+          <DirectionsBike sx={{ marginRight: '10px', fontSize: 32 }} />
+          Bike Inventory Search
+        </Typography>
+  
+        {/* Search Section */}
+        <Paper elevation={3} sx={{ 
+          padding: '20px', 
+          marginBottom: '20px',
+          backgroundColor: '#f8faf8'
+        }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
               <TextField
-                label="Manufacturer"
-                value={bikeData.manufacturer}
+                label="Search Bike"
+                variant="outlined"
                 fullWidth
-                disabled
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                value={searchNumber}
+                onChange={(e) => setSearchNumber(e.target.value)}
+                helperText="Enter any identification number (Motor No, Frame No, Engine No, or Chassis No)"
+                sx={{ backgroundColor: '#ffffff', borderRadius: 2 }}
               />
             </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Model"
-                value={bikeData.model}
+            <Grid item xs={12} md={4}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSearch}
+                disabled={loading}
                 fullWidth
-                disabled
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Type"
-                value={bikeData.type}
-                fullWidth
-                disabled
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Condition"
-                value={bikeData.condition}
-                fullWidth
-                disabled
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Mileage"
-                value={bikeData.mileage}
-                fullWidth
-                disabled
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Purchase Price"
-                value={`₨ ${bikeData.purchasePrice}`}
-                fullWidth
-                disabled
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-    </Grid>
-
-    {/* Price & Profit Details */}
-    <Grid item xs={12} md={12}>
-      <Card
-        sx={{
-          boxShadow: 4,
-          borderRadius: 3,
-          padding: 3,
-          background: '#f1f8e9',
-          '&:hover': { boxShadow: 6 },
-        }}
-      >
-        <CardContent>
-          <Typography
-            variant="h5"
-            sx={{ color: '#388e3c', fontWeight: 'bold', textAlign: 'center', marginBottom: 2 }}
-          >
-            <AttachMoney sx={{ fontSize: 30, marginRight: 1 }} />
-            Price & Profit Details
-          </Typography>
-          <Divider sx={{ marginBottom: 3 }} />
-          <FormControl component="fieldset">
-            <RadioGroup
-              row
-              value={discountType}
-              onChange={(e) => setDiscountType(e.target.value)} // Update discount type
-            >
-              <FormControlLabel
-                value="percent"
-                control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
-                label="Percent"
-                sx={{ color: '#388e3c', fontWeight: 'bold' }}
-              />
-              <FormControlLabel
-                value="rupee"
-                control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
-                label="Rupee"
-                sx={{ color: '#388e3c', fontWeight: 'bold' }}
-              />
-            </RadioGroup>
-          </FormControl>
-
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <TextField
-                label="Discount Offered"
-                value={discountOffered}
-                onChange={(e) => setDiscountOffered(e.target.value)}
-                fullWidth
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Selling Price"
-                value={sellingPrice}
-                onChange={(e) => setSellingPrice(e.target.value)}
-                fullWidth
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Profit"
-                value={`₨ ${profit}`}
-                fullWidth
-                disabled
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-    </Grid>
-
-    {/* Registration Details */}
-    <Grid item xs={12}>
-      <Card
-        sx={{
-          boxShadow: 4,
-          borderRadius: 3,
-          padding: 3,
-          background: '#f1f8e9',
-          '&:hover': { boxShadow: 6 },
-        }}
-      >
-        <CardContent>
-          <Typography
-            variant="h5"
-            sx={{ color: '#388e3c', fontWeight: 'bold', textAlign: 'center', marginBottom: 2 }}
-          >
-            <Assignment sx={{ fontSize: 30, marginRight: 1 }} />
-            Registration Details
-          </Typography>
-          <Divider sx={{ marginBottom: 3 }} />
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <TextField
-                label="Registration No"
-                value={registrationNo}
-                onChange={(e) => setRegistrationNo(e.target.value)}
-                fullWidth
-                disabled={bikeData?.condition === 'New' || bikeData?.condition === 'new'}
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Registration City"
-                value={registrationCity}
-                onChange={(e) => setRegistrationCity(e.target.value)}
-                fullWidth
-                select
-                disabled={bikeData?.condition === 'New' || bikeData?.condition === 'new'}
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                startIcon={<Search />}
+                sx={{
+                  height: '56px',
+                  borderRadius: '8px',
+                  '&:hover': {
+                    transform: 'scale(1.02)',
+                    transition: 'transform 0.2s'
+                  }
+                }}
               >
-                {cities.map((city) => (
-                  <MenuItem key={city} value={city}>
-                    {city}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Client ID Card No"
-                value={clientIDCardNo}
-                onChange={(e) => setClientIDCardNo(e.target.value)}
-                fullWidth
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Client Full Name"
-                value={clientFullName}
-                onChange={(e) => setClientFullName(e.target.value)}
-                fullWidth
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Client Phone Number"
-                value={clientPhoneNumber}
-                onChange={(e) => setClientPhoneNumber(e.target.value)}
-                fullWidth
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Client Address"
-                value={clientAddress}
-                onChange={(e) => setClientAddress(e.target.value)}
-                fullWidth
-                sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-              />
+                Search
+              </Button>
             </Grid>
           </Grid>
-        </CardContent>
-      </Card>
-    </Grid>
+        </Paper>
+  
+        {/* Loading and Error States */}
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+            <CircularProgress color="primary" />
+          </Box>
+        )}
+  
+        {error && (
+          <Typography 
+            color="error" 
+            sx={{ 
+              textAlign: 'center', 
+              marginBottom: '20px',
+              padding: '10px',
+              backgroundColor: '#ffebee',
+              borderRadius: '8px' 
+            }}
+          >
+            {error}
+          </Typography>
+        )}
+  
+        {/* Bike Details Section */}
+        {bikeData && (
+          <Grid container spacing={3}>
+            {/* Bike Details Card */}
+            <Grid item xs={12}>
+              <Card sx={{
+                boxShadow: 4,
+                borderRadius: 3,
+                padding: 3,
+                background: '#f1f8e9',
+                '&:hover': { boxShadow: 6 }
+              }}>
+                <CardContent>
+                  <Typography variant="h5" sx={{ 
+                    color: '#388e3c', 
+                    fontWeight: 'bold', 
+                    textAlign: 'center', 
+                    marginBottom: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <DirectionsBike sx={{ fontSize: 30, marginRight: 1 }} />
+                    Bike Details
+                  </Typography>
+                  <Divider sx={{ marginBottom: 3 }} />
+  
+                  <Grid container spacing={3}>
+                    {/* First Row */}
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        label="Manufacturer"
+                        value={bikeData.manufacturer}
+                        fullWidth
+                        disabled
+                        sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        label="Model"
+                        value={bikeData.model}
+                        fullWidth
+                        disabled
+                        sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        label="Model Year"
+                        value={bikeData.modelYear}
+                        fullWidth
+                        disabled
+                        sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                      />
+                    </Grid>
+  
+  {/* Second Row */}
+  <Grid item xs={12} md={4}>
+                    <TextField
+                      label="Type"
+                      value={bikeData.type}
+                      fullWidth
+                      disabled
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      label="Condition"
+                      value={bikeData.condition}
+                      fullWidth
+                      disabled
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      label="Mileage"
+                      value={bikeData.mileage}
+                      fullWidth
+                      disabled
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
 
-    {/* Payment Details */}
-    <Grid item xs={12}>
-  <Card
-    sx={{
-      boxShadow: 4,
-      borderRadius: 3,
-      padding: 3,
-      background: '#f1f8e9',
-      '&:hover': { boxShadow: 6 },
-    }}
-  >
+                  {/* Identification Numbers - Conditional Rendering */}
+                  {bikeData.type === 'Electric' ? (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Motor Number"
+                          value={bikeData.motorNo || 'N/A'}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Frame Number"
+                          value={bikeData.frameNo || 'N/A'}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                    </>
+                  ) : (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Engine Number"
+                          value={bikeData.engineNo || 'N/A'}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Chassis Number"
+                          value={bikeData.chassisNumber || 'N/A'}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* Additional Details based on Type */}
+                  {bikeData.type === 'Electric' ? (
+                    <>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          label="Power"
+                          value={`${bikeData.power || 'N/A'} W`}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          label="Range"
+                          value={`${bikeData.range || 'N/A'} km`}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          label="Battery Capacity"
+                          value={`${bikeData.batteryDetails?.capacity || 'N/A'} Ah`}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                    </>
+                  ) : (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="CC"
+                          value={bikeData.cc || 'N/A'}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Stroke"
+                          value={bikeData.stroke || 'N/A'}
+                          fullWidth
+                          disabled
+                          sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* Purchase Price */}
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Purchase Price"
+                      value={`₨ ${bikeData.purchasePrice}`}
+                      fullWidth
+                      disabled
+                      sx={{ 
+                        backgroundColor: '#e8f5e9', 
+                        borderRadius: 2,
+                        '& input': {
+                          fontWeight: 'bold',
+                          color: '#1b5e20'
+                        }
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+{/* Price & Profit Details Card */}
+<Grid item xs={12}>
+            <Card sx={{
+              boxShadow: 4,
+              borderRadius: 3,
+              padding: 3,
+              background: '#f1f8e9',
+              '&:hover': { boxShadow: 6 }
+            }}>
+              <CardContent>
+                <Typography variant="h5" sx={{ 
+                  color: '#388e3c', 
+                  fontWeight: 'bold', 
+                  textAlign: 'center', 
+                  marginBottom: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <AttachMoney sx={{ fontSize: 30, marginRight: 1 }} />
+                  Price & Profit Details
+                </Typography>
+                <Divider sx={{ marginBottom: 3 }} />
+
+                <FormControl component="fieldset" sx={{ width: '100%', marginBottom: 2 }}>
+                  <RadioGroup
+                    row
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value)}
+                  >
+                    <FormControlLabel
+                      value="percent"
+                      control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
+                      label="Percent"
+                      sx={{ color: '#388e3c', fontWeight: 'bold' }}
+                    />
+                    <FormControlLabel
+                      value="rupee"
+                      control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
+                      label="Rupee"
+                      sx={{ color: '#388e3c', fontWeight: 'bold' }}
+                    />
+                  </RadioGroup>
+                </FormControl>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Discount Offered"
+                      value={discountOffered}
+                      onChange={(e) => setDiscountOffered(e.target.value)}
+                      fullWidth
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Selling Price"
+                      value={sellingPrice}
+                      onChange={(e) => setSellingPrice(e.target.value)}
+                      fullWidth
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Profit"
+                      value={`₨ ${profit}`}
+                      fullWidth
+                      disabled
+                      sx={{ 
+                        backgroundColor: '#e8f5e9', 
+                        borderRadius: 2,
+                        '& input': {
+                          color: '#1b5e20',
+                          fontWeight: 'bold'
+                        }
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Registration Details Card */}
+          <Grid item xs={12}>
+            <Card sx={{
+              boxShadow: 4,
+              borderRadius: 3,
+              padding: 3,
+              background: '#f1f8e9',
+              '&:hover': { boxShadow: 6 }
+            }}>
+              <CardContent>
+                <Typography variant="h5" sx={{ 
+                  color: '#388e3c', 
+                  fontWeight: 'bold', 
+                  textAlign: 'center', 
+                  marginBottom: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Assignment sx={{ fontSize: 30, marginRight: 1 }} />
+                  Registration Details
+                </Typography>
+                <Divider sx={{ marginBottom: 3 }} />
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Registration No"
+                      value={registrationNo}
+                      onChange={(e) => setRegistrationNo(e.target.value)}
+                      fullWidth
+                      disabled={bikeData?.condition === 'New' || bikeData?.condition === 'new'}
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Registration City"
+                      value={registrationCity}
+                      onChange={(e) => setRegistrationCity(e.target.value)}
+                      select
+                      fullWidth
+                      disabled={bikeData?.condition === 'New' || bikeData?.condition === 'new'}
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    >
+                      {cities.map((city) => (
+                        <MenuItem key={city} value={city}>
+                          {city}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Client ID Card No"
+                      value={clientIDCardNo}
+                      onChange={(e) => setClientIDCardNo(e.target.value)}
+                      fullWidth
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Client Full Name"
+                      value={clientFullName}
+                      onChange={(e) => setClientFullName(e.target.value)}
+                      fullWidth
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Client Phone Number"
+                      value={clientPhoneNumber}
+                      onChange={(e) => setClientPhoneNumber(e.target.value)}
+                      fullWidth
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Client Address"
+                      value={clientAddress}
+                      onChange={(e) => setClientAddress(e.target.value)}
+                      fullWidth
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+{/* Payment Details Card */}
+<Grid item xs={12}>
+            <Card sx={{
+              boxShadow: 4,
+              borderRadius: 3,
+              padding: 3,
+              background: '#f1f8e9',
+              '&:hover': { boxShadow: 6 }
+            }}>
+              <CardContent>
+                <Typography variant="h5" sx={{ 
+                  color: '#388e3c', 
+                  fontWeight: 'bold', 
+                  textAlign: 'center', 
+                  marginBottom: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <AttachMoney sx={{ fontSize: 30, marginRight: 1 }} />
+                  Payment Details
+                </Typography>
+                <Divider sx={{ marginBottom: 3 }} />
+
+                <FormControl component="fieldset" sx={{ width: '100%', marginBottom: 2 }}>
+                  <RadioGroup
+                    row
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <FormControlLabel
+                      value="cash"
+                      control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
+                      label="Pay by Cash"
+                      sx={{ color: '#388e3c', fontWeight: 'bold' }}
+                    />
+                    <FormControlLabel
+                      value="online"
+                      control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
+                      label="Pay Online"
+                      sx={{ color: '#388e3c', fontWeight: 'bold' }}
+                    />
+                  </RadioGroup>
+                </FormControl>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Cash Paid"
+                      value={cashPaid}
+                      onChange={(e) => {
+                        setCashPaid(e.target.value);
+                        updateBalance('cash', e.target.value);
+                      }}
+                      fullWidth
+                      disabled={paymentMethod !== 'cash'}
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Online Paid"
+                      value={onlinePaid}
+                      onChange={(e) => {
+                        setOnlinePaid(e.target.value);
+                        updateBalance('online', e.target.value);
+                      }}
+                      fullWidth
+                      disabled={paymentMethod !== 'online'}
+                      sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Remaining Balance"
+                      value={balance}
+                      fullWidth
+                      disabled
+                      sx={{ 
+                        backgroundColor: '#e8f5e9', 
+                        borderRadius: 2,
+                        '& input': {
+                          color: '#1b5e20',
+                          fontWeight: 'bold'
+                        }
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+          {/* Warranty Claims Card */}
+<Grid item xs={12}>
+  <Card sx={{
+    boxShadow: 4,
+    borderRadius: 3,
+    padding: 3,
+    background: '#f1f8e9',
+    '&:hover': { boxShadow: 6 }
+  }}>
     <CardContent>
-      <Typography
-        variant="h5"
-        sx={{ color: '#388e3c', fontWeight: 'bold', textAlign: 'center', marginBottom: 2 }}
-      >
-        <AttachMoney sx={{ fontSize: 30, marginRight: 1 }} />
-        Payment Details
+      <Typography variant="h5" sx={{ 
+        color: '#388e3c', 
+        fontWeight: 'bold', 
+        textAlign: 'center', 
+        marginBottom: 2,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Build sx={{ fontSize: 30, marginRight: 1 }} />
+        Warranty Claims
       </Typography>
       <Divider sx={{ marginBottom: 3 }} />
-      <FormControl component="fieldset">
-        <RadioGroup
-          row
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value)}
-        >
-          <FormControlLabel
-            value="cash"
-            control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
-            label="Pay by Cash"
-            sx={{ color: '#388e3c', fontWeight: 'bold' }}
-          />
-          <FormControlLabel
-            value="online"
-            control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
-            label="Pay Online"
-            sx={{ color: '#388e3c', fontWeight: 'bold' }}
-          />
-        </RadioGroup>
-      </FormControl>
 
       <Grid container spacing={2}>
-        {/* Cash Paid */}
-        <Grid item xs={6}>
-          <TextField
-            label="Cash Paid"
-            value={cashPaid}
-            onChange={(e) => {
-              setCashPaid(e.target.value);
-              updateBalance('cash', e.target.value);
-            }}
-            fullWidth
-            disabled={paymentMethod !== 'cash'} // Disable if not 'cash' payment method
-            sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-          />
-        </Grid>
-
-        {/* Online Paid */}
-        <Grid item xs={6}>
-          <TextField
-            label="Online Paid"
-            value={onlinePaid}
-            onChange={(e) => {
-              setOnlinePaid(e.target.value);
-              updateBalance('online', e.target.value);
-            }}
-            fullWidth
-            disabled={paymentMethod !== 'online'} // Disable if not 'online' payment method
-            sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
-          />
-        </Grid>
-
-        {/* Balance */}
         <Grid item xs={12}>
           <TextField
-            label="Remaining Balance"
-            value={balance}
+            label="Warranty Details"
+            value={bikeData?.warranty || 'N/A'}
+            multiline
+            rows={3}
             fullWidth
             disabled
-            sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
+            sx={{ backgroundColor: '#e8f5e9', borderRadius: 2, marginBottom: 2 }}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={issueWarrantyBook}
+                onChange={(e) => setIssueWarrantyBook(e.target.checked)}
+                sx={{
+                  '&.Mui-checked': {
+                    color: '#388e3c',
+                  },
+                }}
+              />
+            }
+            label={
+              <Typography sx={{ color: '#1b5e20', fontWeight: 'bold' }}>
+                Issue Warranty/Claim Book
+              </Typography>
+            }
           />
         </Grid>
       </Grid>
@@ -910,290 +1247,311 @@ const updateBalance = (method, value) => {
   </Card>
 </Grid>
 
-    <Grid item xs={12}>
-  <Card
-    sx={{
-      boxShadow: 4,
-      borderRadius: 3,
-      padding: 3,
-      background: '#f1f8e9',
-      '&:hover': { boxShadow: 6 },
-    }}
-  >
-    <CardContent>
-      <Typography
-        variant="h5"
-        sx={{ color: '#388e3c', fontWeight: 'bold', textAlign: 'center', marginBottom: 2 }}
+          {/* Agent Information Card */}
+          <Grid item xs={12}>
+            <Card sx={{
+              boxShadow: 4,
+              borderRadius: 3,
+              padding: 3,
+              background: '#f1f8e9',
+              '&:hover': { boxShadow: 6 }
+            }}>
+              <CardContent>
+                <Typography variant="h5" sx={{ 
+                  color: '#388e3c', 
+                  fontWeight: 'bold', 
+                  textAlign: 'center', 
+                  marginBottom: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Person sx={{ fontSize: 30, marginRight: 1 }} />
+                  Agent Information
+                </Typography>
+                <Divider sx={{ marginBottom: 3 }} />
 
-      >
-        <Person sx={{ fontSize: 30, marginRight: 1 }} />
-        Agent Information
-      </Typography>
-      <Divider sx={{ marginBottom: 3 }} />
+                <FormControl component="fieldset" sx={{ width: '100%', marginBottom: 2 }}>
+                  <RadioGroup
+                    row
+                    value={agentSelection}
+                    onChange={(e) => {
+                      setAgentSelection(e.target.value);
+                      if (e.target.value === 'manual') {
+                        setAgent('');
+                      }
+                    }}
+                  >
+                    <FormControlLabel
+                      value="saved"
+                      control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
+                      label="Saved"
+                      sx={{ color: '#388e3c', fontWeight: 'bold' }}
+                    />
+                    <FormControlLabel
+                      value="manual"
+                      control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
+                      label="Manual"
+                      sx={{ color: '#388e3c', fontWeight: 'bold' }}
+                    />
+                  </RadioGroup>
+                </FormControl>
+{/* Saved Agent Selection */}
+{agentSelection === 'saved' && (
+                  <FormControl fullWidth sx={{ marginTop: '10px' }}>
+                    <InputLabel sx={{ color: '#1b5e20' }}>Agent</InputLabel>
+                    <Select
+                      label="Agent"
+                      name="agent"
+                      value={agent}
+                      onChange={handleAgentChange}
+                      sx={{
+                        backgroundColor: '#e8f5e9',
+                        borderRadius: 2,
+                        '&:hover': { backgroundColor: '#c8e6c9' },
+                      }}
+                    >
+                      {agents.map((agent) => (
+                        <MenuItem
+                          key={agent.name}
+                          value={agent.name}
+                          sx={{ '&:hover': { backgroundColor: '#a5d6a7' } }}
+                        >
+                          {agent.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
 
-      <FormControl component="fieldset">
-        <RadioGroup
-          row
-          value={agentSelection}
-          onChange={(e) => {
-            setAgentSelection(e.target.value);
-            if (e.target.value === 'manual') {
-              setAgent(''); // Reset selected agent when switching to manual
-            }
-          }}
-        >
-          <FormControlLabel
-            value="saved"
-            control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
-            label="Saved"
-            sx={{ color: '#388e3c', fontWeight: 'bold' }}
-          />
-          <FormControlLabel
-            value="manual"
-            control={<Radio sx={{ '&.Mui-checked': { color: '#388e3c' } }} />}
-            label="Manual"
-            sx={{ color: '#388e3c', fontWeight: 'bold' }}
-          />
-        </RadioGroup>
-      </FormControl>
+                {/* Manual Agent Information */}
+                {agentSelection === 'manual' && (
+                  <Box sx={{
+                    marginTop: '10px',
+                    backgroundColor: '#e8f5e9',
+                    padding: 2,
+                    borderRadius: 2,
+                    boxShadow: 2,
+                  }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Name"
+                          name="name"
+                          value={manualAgentInfo.name}
+                          onChange={handleManualChange}
+                          fullWidth
+                          sx={{
+                            backgroundColor: '#ffffff',
+                            borderRadius: 2,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="CNIC"
+                          name="cnic"
+                          value={manualAgentInfo.cnic}
+                          onChange={handleManualChange}
+                          fullWidth
+                          sx={{
+                            backgroundColor: '#ffffff',
+                            borderRadius: 2,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Contact No"
+                          name="contactNo"
+                          value={manualAgentInfo.contactNo}
+                          onChange={handleManualChange}
+                          fullWidth
+                          sx={{
+                            backgroundColor: '#ffffff',
+                            borderRadius: 2,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Address"
+                          name="address"
+                          value={manualAgentInfo.address}
+                          onChange={handleManualChange}
+                          fullWidth
+                          sx={{
+                            backgroundColor: '#ffffff',
+                            borderRadius: 2,
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
 
-      {/* Saved Agent Selection */}
-      {agentSelection === 'saved' && (
-        <FormControl fullWidth sx={{ marginTop: '10px' }}>
-          <InputLabel  sx={{ color: '#1b5e20' }}>Agent</InputLabel>
-          <Select
-          label='Agent'
-          name='agent'
-            value={agent}
-            onChange={handleAgentChange}
-            sx={{
-              backgroundColor: '#e8f5e9',
-              borderRadius: 2,
-              '&:hover': { backgroundColor: '#c8e6c9' },
-            }}
-          >
-            {agents.map((agent) => (
-              <MenuItem
-                key={agent.name}
-                value={agent.name}
-                sx={{ '&:hover': { backgroundColor: '#a5d6a7' } }}
+                {/* Display Selected Agent Details */}
+                {agentSelection === 'saved' && agent && (
+                  <Box sx={{
+                    marginTop: '10px',
+                    backgroundColor: '#e8f5e9',
+                    padding: 2,
+                    borderRadius: 2,
+                    boxShadow: 2,
+                  }}>
+                    <Typography variant="body1" sx={{ color: '#1b5e20', fontWeight: 'bold', marginBottom: 1 }}>
+                      <strong>CNIC:</strong> {selectedAgent.cnic}
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: '#1b5e20', fontWeight: 'bold', marginBottom: 1 }}>
+                      <strong>Contact No:</strong> {selectedAgent.contact}
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: '#1b5e20', fontWeight: 'bold', marginBottom: 1 }}>
+                      <strong>Address:</strong> {selectedAgent.address}
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Action Buttons */}
+          <Grid item xs={12}>
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: 4,
+              marginTop: 3,
+              marginBottom: 3,
+            }}>
+              <Button
+                variant="contained"
+                color="primary"
+                size="large"
+                onClick={() => handleActionConfirmation('proceed')}
+                disabled={!allFieldsFilled()}
+                endIcon={<ArrowForwardIcon />}
+                sx={{
+                  borderRadius: '50px',
+                  padding: '12px 32px',
+                  fontSize: '1.1rem',
+                  minWidth: '200px',
+                  backgroundColor: '#388e3c',
+                  '&:hover': {
+                    backgroundColor: '#2e7d32',
+                    transform: 'scale(1.02)',
+                    transition: 'all 0.2s'
+                  }
+                }}
               >
-                {agent.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+                Proceed Now
+              </Button>
+
+              <Button
+                variant="contained"
+                color="secondary"
+                size="large"
+                onClick={() => handleActionConfirmation('credit')}
+                disabled={!allFieldsFilled()}
+                sx={{
+                  borderRadius: '50px',
+                  padding: '12px 32px',
+                  fontSize: '1.1rem',
+                  minWidth: '200px',
+                  '&:hover': {
+                    transform: 'scale(1.02)',
+                    transition: 'all 0.2s'
+                  }
+                }}
+              >
+                Credit Sale
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
       )}
 
-      {/* Manual Agent Information */}
-      {agentSelection === 'manual' && (
-        <Box
-          sx={{
-            marginTop: '10px',
-            backgroundColor: '#e8f5e9',
-            padding: 2,
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmationDialogOpen}
+        onClose={() => setConfirmationDialogOpen(false)}
+        PaperProps={{
+          sx: {
             borderRadius: 2,
-            boxShadow: 2,
-          }}
-        >
-          <TextField
-            label="Name"
-            name="name"
-            value={manualAgentInfo.name}
-            onChange={handleManualChange}
-            fullWidth
-            sx={{
-              marginBottom: '10px',
-              backgroundColor: '#ffffff',
-              borderRadius: 2,
-            }}
-          />
-          <TextField
-            label="CNIC"
-            name="cnic"
-            value={manualAgentInfo.cnic}
-            onChange={handleManualChange}
-            fullWidth
-            sx={{
-              marginBottom: '10px',
-              backgroundColor: '#ffffff',
-              borderRadius: 2,
-            }}
-          />
-          <TextField
-            label="Contact No"
-            name="contactNo"
-            value={manualAgentInfo.contactNo}
-            onChange={handleManualChange}
-            fullWidth
-            sx={{
-              marginBottom: '10px',
-              backgroundColor: '#ffffff',
-              borderRadius: 2,
-            }}
-          />
-          <TextField
-            label="Address"
-            name="address"
-            value={manualAgentInfo.address}
-            onChange={handleManualChange}
-            fullWidth
-            sx={{
-              marginBottom: '10px',
-              backgroundColor: '#ffffff',
-              borderRadius: 2,
-            }}
-          />
-        </Box>
-      )}
-
-      {/* Display Selected Agent Details (if saved is selected) */}
-      {agentSelection === 'saved' && agent && (
-        <Box
-          sx={{
-            marginTop: '10px',
-            backgroundColor: '#e8f5e9',
-            padding: 2,
-            borderRadius: 2,
-            boxShadow: 2,
-          }}
-        >
-          <Typography
-            variant="body1"
-            sx={{ color: '#1b5e20', fontWeight: 'bold', marginBottom: '5px' }}
-          >
-            <strong>CNIC:</strong> {selectedAgent.cnic}
-          </Typography>
-          <Typography
-            variant="body1"
-            sx={{ color: '#1b5e20', fontWeight: 'bold', marginBottom: '5px' }}
-          >
-            <strong>Contact No:</strong> {selectedAgent.contact}
-          </Typography>
-          <Typography
-            variant="body1"
-            sx={{ color: '#1b5e20', fontWeight: 'bold', marginBottom: '5px' }}
-          >
-            <strong>Address:</strong> {selectedAgent.address}
-          </Typography>
-        </Box>
-      )}
-    </CardContent>
-  </Card>
-</Grid>
-
-    {/* Action Buttons */}
-    <Grid item xs={12}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-evenly',
-          marginTop: 3,
-          marginBottom: 3,
+            padding: 2
+          }
         }}
       >
-        {/* Proceed Now Button */}
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          sx={{
-            borderRadius: '50px',
-            padding: '10px 20px',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-          endIcon={<ArrowForwardIcon />}
-          onClick={() => handleActionConfirmation('proceed')}
-          disabled={!allFieldsFilled()} 
-        >
-          Proceed Now
-        </Button>
+        <DialogTitle sx={{ color: '#388e3c' }}>Confirm Action</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to {actionType === 'proceed' ? 'proceed now' : 'perform a credit sale'}?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setConfirmationDialogOpen(false)}
+            sx={{ color: '#757575' }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmAction} 
+            variant="contained" 
+            color="primary"
+            sx={{
+              backgroundColor: '#388e3c',
+              '&:hover': { backgroundColor: '#2e7d32' }
+            }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Credit Sale Button */}
-        <Button
-          variant="contained"
-          color="secondary"
-          size="large"
-          sx={{
-            borderRadius: '50px',
-            padding: '10px 20px',
-          }}
-          onClick={() => handleActionConfirmation('credit')}
-          disabled={!allFieldsFilled()} 
-        >
-          Credit Sale
-        </Button>
-      </Box>
-
-
-  {/* Confirmation Dialog */}
-  <Dialog
-    open={confirmationDialogOpen}
-    onClose={() => setConfirmationDialogOpen(false)}
-  >
-    <DialogTitle>Confirm Action</DialogTitle>
-    <DialogContent>
-      <DialogContentText>
-        Are you sure you want to{' '}
-        {actionType === 'proceed' ? 'Proceed Now' : 'perform a Credit Sale'}?
-      </DialogContentText>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={() => setConfirmationDialogOpen(false)} color="primary">
-        Cancel
-      </Button>
-      <Button onClick={confirmAction} color="primary" autoFocus>
-        Confirm
-      </Button>
-    </DialogActions>
-  </Dialog>
-</Grid>
-
-  </Grid>
-)}
-</Box>
-
-    <Snackbar
-    open={snackbarOpen}
-    autoHideDuration={6000}
-    onClose={() => setSnackbarOpen(false)}
->
-    <Alert
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
         onClose={() => setSnackbarOpen(false)}
-        severity={snackbarSeverity}
-        sx={{ width: '100%' }}
-    >
-        {snackbarMessage}
-    </Alert>
-</Snackbar>
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
 
-<BikeCreditModal
-  open={creditModalOpen}
-  onClose={() => setCreditModalOpen(false)}
-  bikeData={bikeData}
-  agent={agentSelection === 'saved' ? selectedAgent : manualAgentInfo}
-  clientDetails={{
-    fullName: clientFullName,
-    idCardNo: clientIDCardNo,
-    phoneNumber: clientPhoneNumber,
-    address: clientAddress,
-    registrationCity,
-    registrationNo
-  }}
-  priceDetails={{
-    sellingPrice,
-    discountOffered,
-    cashPaid,
-    onlinePaid,
-    profit,
-    balance
-  }}
-/>
+      {/* Credit Modal */}
+      <BikeCreditModal
+        open={creditModalOpen}
+        onClose={() => setCreditModalOpen(false)}
+        bikeData={bikeData}
+        agent={agentSelection === 'saved' ? selectedAgent : manualAgentInfo}
+        clientDetails={{
+          fullName: clientFullName,
+          idCardNo: clientIDCardNo,
+          phoneNumber: clientPhoneNumber,
+          address: clientAddress,
+          registrationCity,
+          registrationNo
+        }}
+        priceDetails={{
+          sellingPrice,
+          discountOffered,
+          cashPaid,
+          onlinePaid,
+          profit,
+          balance
+        }}
+      />
+    </Box>
+  </>
+);
 
 
-    </>
-  );
 };
 
 export default BikeSearch;

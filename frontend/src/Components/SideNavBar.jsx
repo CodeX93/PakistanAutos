@@ -66,6 +66,8 @@ import Expense from '../Screen/Expense';
 import SoldMotorcycles from '../Screen/soldMotorcycle';
 import SoldSparePart from '../Screen/soldSpare';
 import ManageLocalCreditBuys from "../Screen/ManageLocalCreditBuys"
+import ManageSparePartCategory from '../Screen/ManageSparePartCategory';
+import ManageSparePartSubCategory from '../Screen/ManageSparePartSubCategory';
 
 
 
@@ -256,6 +258,18 @@ function ModernNavigation() {
           text: 'Parts Purchasing',
           icon: <Build />,
           children: [
+            {
+              id: 'manufacturers',
+              text: 'Categories',
+              icon: <Factory />,
+              path: '/admindashboard/catalog/spare-part-category',
+            },
+            {
+              id: 'models',
+              text: 'SubCategories',
+              icon: <BikeScooter />,
+              path: '/admindashboard/catalog/spare-part-sub-category',
+            },
        
             {
               id: 'addSparePart',
@@ -498,6 +512,8 @@ function ModernNavigation() {
               <Route path="/admindashboard/catalog/manufacturers" element={<ManageBikeManufacturers />} />
               <Route path="/admindashboard/catalog/models" element={<ManageBikeModels />} />
               <Route path="/admindashboard/catalog/addBike" element={<AddBike />} />
+              <Route path="/admindashboard/catalog/spare-part-category" element={<ManageSparePartCategory />} />
+              <Route path="/admindashboard/catalog/spare-part-sub-category" element={<ManageSparePartSubCategory />} />
               <Route path='/admindashboard/catalog/addSparePart' element={<AddSparePart/>}/>
               
               {/*Sales*/}

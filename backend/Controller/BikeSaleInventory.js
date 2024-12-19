@@ -13,47 +13,79 @@ const removeUndefinedFields = (obj) => {
 // Create a Sale Bike Inventory
 BikeSaleInventoryRouter.post("/", async (req, res) => {
     try {
-        const { agent, bikeDetails, priceDetails, registrationDetails } = req.body;
-
-        if (!agent || !bikeDetails || !priceDetails || !registrationDetails) {
-            return res.status(400).json({ message: "All fields are required." });
+      const { agent, bikeDetails, priceDetails, registrationDetails } = req.body;
+      
+      // Check for required fields
+      if (!agent || !bikeDetails || !priceDetails || !registrationDetails) {
+        return res.status(400).json({ message: "All fields are required." });
+      }
+  
+      const { manufacturer, type } = bikeDetails;
+      if (!manufacturer || !type) {
+        return res.status(400).json({ message: "Manufacturer and Type are required." });
+      }
+  
+      // Validate identification numbers based on bike type
+      if (type === 'Electric') {
+        const { motorNo, frameNo } = bikeDetails;
+        if (!motorNo || !frameNo) {
+          return res.status(400).json({ message: "Motor Number and Frame Number are required for Electric bikes." });
         }
-
-        const { manufacturer, type, chassisNumber } = bikeDetails;
-
-        if (!manufacturer || !type || !chassisNumber) {
-            return res.status(400).json({ message: "Manufacturer, Type, and Chassis Number are required." });
-        }
-
+  
+        // Find bike in inventory using motorNo
         const bikeTypeCollection = collection(db, "BikeInventory", manufacturer, type);
-        const bikeQuery = query(bikeTypeCollection, where("chassisNumber", "==", chassisNumber));
+        const bikeQuery = query(bikeTypeCollection, where("motorNo", "==", motorNo));
         const bikeSnapshot = await getDocs(bikeQuery);
-
+  
         if (bikeSnapshot.empty) {
-            return res.status(404).json({ message: "Bike not found in inventory." });
+          return res.status(404).json({ message: "Electric bike not found in inventory." });
         }
-
+  
         // Remove the bike from inventory
         const batchDeletes = bikeSnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(batchDeletes);
-
-        // Add bike to SaleBikeInventory
-        const newSale = {
-            agent,
-            bikeDetails,
-            priceDetails,
-            registrationDetails,
-            createdAt: new Date(),
-        };
-
-        const saleRef = await addDoc(collection(db, "SaleBikeInventory"), newSale);
-        res.status(201).json({ id: saleRef.id, ...newSale });
-
+  
+      } else {
+        // For Non-Electric bikes
+        const { engineNo, chassisNumber } = bikeDetails;
+        if (!engineNo || !chassisNumber) {
+          return res.status(400).json({ message: "Engine Number and Chassis Number are required for Non-Electric bikes." });
+        }
+  
+        // Find bike in inventory using chassisNumber
+        const bikeTypeCollection = collection(db, "BikeInventory", manufacturer, type);
+        const bikeQuery = query(bikeTypeCollection, where("chassisNumber", "==", chassisNumber));
+        const bikeSnapshot = await getDocs(bikeQuery);
+  
+        if (bikeSnapshot.empty) {
+          return res.status(404).json({ message: "Non-Electric bike not found in inventory." });
+        }
+  
+        // Remove the bike from inventory
+        const batchDeletes = bikeSnapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(batchDeletes);
+      }
+  
+      // Add bike to SaleBikeInventory with all details
+      const newSale = {
+        agent,
+        bikeDetails: {
+          ...bikeDetails,
+          warrantyBookIssued: bikeDetails.warrantyBookIssued || false // Add warranty book status
+        },
+        priceDetails,
+        registrationDetails,
+        createdAt: new Date(),
+      };
+  
+      const saleRef = await addDoc(collection(db, "SaleBikeInventory"), newSale);
+      res.status(201).json({ id: saleRef.id, ...newSale });
+  
     } catch (error) {
-        console.error("Error adding bike to sale inventory:", error);
-        res.status(500).json({ error: error.message });
+      console.error("Error adding bike to sale inventory:", error);
+      res.status(500).json({ error: error.message });
     }
-});
+  });
 
 BikeSaleInventoryRouter.post("/revertSale/:id", async (req, res) => {
     const { id } = req.params;

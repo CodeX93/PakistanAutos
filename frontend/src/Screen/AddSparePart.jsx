@@ -5,33 +5,22 @@ import {
   Typography,
   Divider,
   IconButton,
+  Autocomplete,
+  CircularProgress
 } from '@mui/material';
-import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { ScrollableContainer, Container, StyledButton, FormSection } from '../Styles/AddBike';
 import url from '../baseUrl';
 
 const bikeTypes = ['Electric Motorbike', 'Non-Electric Motorbike'];
-const categories = {
-  'Electric Motorbike': ['Battery and Charging', 'Electrical Components', 'Drivetrain and Transmission'],
-  'Non-Electric Motorbike': ['Engine and Exhaust', 'Fuel System', 'Transmission and Clutch'],
-};
-const subCategories = {
-  'Battery and Charging': ['Lithium-ion battery', 'Battery management system (BMS)', 'Charging port'],
-  'Electrical Components': ['Electric motor', 'Motor controller', 'Throttle control'],
-  'Drivetrain and Transmission': ['Drive belt or chain', 'Sprockets', 'Gearbox'],
-  'Engine and Exhaust': ['Engine components', 'Carburetor or fuel injection system', 'Exhaust pipe'],
-  'Fuel System': ['Fuel tank', 'Fuel pump', 'Fuel filter'],
-  'Transmission and Clutch': ['Gearbox', 'Clutch plates', 'Chain and sprockets'],
-};
 const conditions = ['New', 'Used', 'Repaired', 'Scrapped'];
 
 const AddSparePart = () => {
   const [formData, setFormData] = useState({
     bikeType: '',
-    category: '',
-    subCategory: '',
+    category: null,
+    subCategory: null,
     supplier: null,
   });
 
@@ -42,57 +31,79 @@ const AddSparePart = () => {
     unitPrice: '',
     quantity: '',
     total: '',
+    warranty: ''
   }]);
 
-  const [availableCategories, setAvailableCategories] = useState([]);
-  const [availableSubCategories, setAvailableSubCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [subCategories, setSubCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [error, setError] = useState(null);
 
+  // Initial data fetch
   useEffect(() => {
+    fetchCategories();
     fetchSuppliers();
   }, []);
 
-  useEffect(() => {
-    if (formData.bikeType) {
-      setAvailableCategories(categories[formData.bikeType] || []);
-      setFormData(prev => ({ ...prev, category: '', subCategory: '' }));
-    } else {
-      setAvailableCategories([]);
-    }
-  }, [formData.bikeType]);
-
+  // Fetch subcategories when category changes
   useEffect(() => {
     if (formData.category) {
-      setAvailableSubCategories(subCategories[formData.category] || []);
-      setFormData(prev => ({ ...prev, subCategory: '' }));
+      fetchSubCategories(formData.category.id);
     } else {
-      setAvailableSubCategories([]);
+      setSubCategories([]);
     }
   }, [formData.category]);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${url}/category`);
+      if (!response.ok) throw new Error('Failed to fetch categories');
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to load categories');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSubCategories = async (categoryId) => {
+    try {
+      const response = await fetch(`${url}/subcategory/category/${categoryId}`);
+      if (!response.ok) throw new Error('Failed to fetch subcategories');
+      const data = await response.json();
+      setSubCategories(data);
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to load subcategories');
+    }
+  };
 
   const fetchSuppliers = async () => {
     try {
       const response = await fetch(`${url}/SparePartSeller/`);
-      if (response.ok) {
-        const data = await response.json();
-        setSuppliers(data);
-      } else {
-        console.error('Failed to fetch suppliers');
-        setError('Failed to fetch suppliers');
-      }
+      if (!response.ok) throw new Error('Failed to fetch suppliers');
+      const data = await response.json();
+      setSuppliers(data);
     } catch (error) {
-      console.error('Error fetching suppliers:', error);
-      setError('Error fetching suppliers');
+      console.error('Error:', error);
+      setError('Failed to load suppliers');
     }
   };
 
   const handleInputChange = (e, value, name) => {
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: value,
-    }));
-    setError(null); // Clear any previous errors
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      // Clear subcategory when category changes
+      if (name === 'category') {
+        newData.subCategory = null;
+      }
+      return newData;
+    });
+    setError(null);
   };
 
   const handleProductChange = (index, name, value) => {
@@ -109,7 +120,7 @@ const AddSparePart = () => {
     }
 
     setProducts(updatedProducts);
-    setError(null); 
+    setError(null);
   };
 
   const addProduct = () => {
@@ -120,35 +131,26 @@ const AddSparePart = () => {
       unitPrice: '',
       quantity: '',
       total: '',
+      warranty: ''
     }]);
   };
 
   const removeProduct = (index) => {
-    const updatedProducts = products.filter((_, i) => i !== index);
-    setProducts(updatedProducts);
+    setProducts(products.filter((_, i) => i !== index));
   };
 
   const validateForm = () => {
-    // Validate form data
-    if (!formData.bikeType || !formData.category || !formData.subCategory || !formData.supplier) {
-      throw new Error('Please fill in all required form fields');
-    }
+    if (!formData.bikeType) throw new Error('Please select a bike type');
+    if (!formData.category) throw new Error('Please select a category');
+    if (!formData.subCategory) throw new Error('Please select a subcategory');
+    if (!formData.supplier) throw new Error('Please select a supplier');
 
-    // Validate products
-    if (!products.length) {
-      throw new Error('At least one product is required');
-    }
+    if (!products.length) throw new Error('At least one product is required');
 
     products.forEach((product, index) => {
-      if (!product.productName.trim()) {
-        throw new Error(`Product ${index + 1}: Product name is required`);
-      }
-      if (!product.condition) {
-        throw new Error(`Product ${index + 1}: Condition is required`);
-      }
-      if (!product.warehouseLocation.trim()) {
-        throw new Error(`Product ${index + 1}: Warehouse location is required`);
-      }
+      if (!product.productName.trim()) throw new Error(`Product ${index + 1}: Name is required`);
+      if (!product.condition) throw new Error(`Product ${index + 1}: Condition is required`);
+      if (!product.warehouseLocation.trim()) throw new Error(`Product ${index + 1}: Location is required`);
       if (!product.unitPrice || isNaN(product.unitPrice) || parseFloat(product.unitPrice) <= 0) {
         throw new Error(`Product ${index + 1}: Valid unit price is required`);
       }
@@ -161,18 +163,17 @@ const AddSparePart = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
     try {
-      // Validate the form
       validateForm();
 
-      // Prepare the request payload
       const payload = {
         formData: {
           bikeType: formData.bikeType,
-          category: formData.category,
-          subCategory: formData.subCategory,
-          supplier: formData.supplier
+          categoryId: formData.category.id,
+          subCategoryId: formData.subCategory.id,
+          supplierId: formData.supplier.id
         },
         products: products.map(product => ({
           productName: product.productName,
@@ -180,11 +181,11 @@ const AddSparePart = () => {
           warehouseLocation: product.warehouseLocation,
           unitPrice: parseFloat(product.unitPrice),
           quantity: parseInt(product.quantity),
-          total: parseFloat(product.total)
+          total: parseFloat(product.total),
+          warranty: product.warranty
         }))
       };
 
-      // Make the API request
       const response = await fetch(`${url}/sparepart/addSparePart`, {
         method: 'POST',
         headers: {
@@ -198,14 +199,11 @@ const AddSparePart = () => {
         throw new Error(errorData.error || 'Failed to add spare part');
       }
 
-      const result = await response.json();
-      console.log('Spare Part added successfully:', result);
-      
       // Reset form after successful submission
       setFormData({
         bikeType: '',
-        category: '',
-        subCategory: '',
+        category: null,
+        subCategory: null,
         supplier: null,
       });
       setProducts([{
@@ -215,72 +213,32 @@ const AddSparePart = () => {
         unitPrice: '',
         quantity: '',
         total: '',
-        warranty:''
+        warranty: ''
       }]);
-      
+
+      alert('Spare part added successfully!');
     } catch (error) {
       console.error('Error:', error);
       setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
-
-  const circleAnimationStyle = {
-    position: 'absolute',
-    borderRadius: '50%',
-    opacity: 0.5,
-    animation: 'float 15s ease-in-out infinite',
-  };
-  
-  const keyframesStyle = `
-    @keyframes float {
-      0% { transform: translateY(0px); }
-      50% { transform: translateY(-15px); }
-      100% { transform: translateY(0px); }
-    }
-    @keyframes floatLeftRight {
-      0% { transform: translateX(0px); }
-      50% { transform: translateX(15px); }
-      100% { transform: translateX(0px); }
-    }
-
-  `;
 
   return (
     <ScrollableContainer>
-
-<div style={{ position: 'relative', overflow: 'auto', padding: '20px', height: '100vh' }}>
-  {/* Keyframes for Floating Animation */}
-  <style>{keyframesStyle}</style>
-
-  {/* Background Animated Green Circles */}
-  <div style={{ ...circleAnimationStyle, width: '100px', height: '100px', backgroundColor: '#a5d6a7', top: '5%', left: '5%' }} />
-  <div style={{ ...circleAnimationStyle, width: '100px', height: '100px', backgroundColor: '#81c784', top: '10%', right: '5%', animationName: 'floatLeftRight' }} />
-  <div style={{ ...circleAnimationStyle, width: '100px', height: '100px', backgroundColor: '#66bb6a', bottom: '5%', left: '5%' }} />
-  <div style={{ ...circleAnimationStyle, width: '100px', height: '100px', backgroundColor: '#4caf50', bottom: '5%', right: '5%' }} />
-  
-  
-  {/* Center Circles */}
-  <div style={{ ...circleAnimationStyle, width: '120px', height: '120px', backgroundColor: '#388e3c', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-  <div style={{ ...circleAnimationStyle, width: '90px', height: '90px', backgroundColor: '#66bb6a', top: '55%', left: '55%', transform: 'translate(-50%, -50%)', animationName: 'float' }} />
-  <div style={{ ...circleAnimationStyle, width: '80px', height: '80px', backgroundColor: '#81c784', top: '45%', left: '45%', transform: 'translate(-50%, -50%)', animationName: 'floatLeftRight' }} />
-
-  {/* Bottom Center Circles */}
-  <div style={{ ...circleAnimationStyle, width: '60px', height: '60px', backgroundColor: '#66bb6a', bottom: '15%', left: '45%' }} />
-  <div style={{ ...circleAnimationStyle, width: '50px', height: '50px', backgroundColor: '#81c784', bottom: '10%', right: '45%', animationName: 'float' }} />
-  <div style={{ ...circleAnimationStyle, width: '40px', height: '40px', backgroundColor: '#a5d6a7', bottom: '8%', left: '50%', transform: 'translateX(-50%)' }} />
-
       <Container>
         <Typography variant="h4" gutterBottom align="center" color="primary">
           Add Spare Part
         </Typography>
 
         {error && (
-          <Typography color="error" variant="body2" style={{ marginBottom: '1rem' }}>
+          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
             {error}
           </Typography>
         )}
 
-        <Divider style={{ margin: '20px 0' }} />
+        <Divider sx={{ my: 3 }} />
 
         <form onSubmit={handleSubmit}>
           <FormSection>
@@ -293,17 +251,11 @@ const AddSparePart = () => {
                 <Autocomplete
                   options={bikeTypes}
                   renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      label="Bike Type" 
-                      variant="outlined" 
-                      required 
-                      fullWidth 
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
+                    <TextField
+                      {...params}
+                      label="Bike Type"
+                      required
+                      error={Boolean(error && !formData.bikeType)}
                     />
                   )}
                   value={formData.bikeType}
@@ -313,64 +265,50 @@ const AddSparePart = () => {
 
               <Grid item xs={12} sm={6}>
                 <Autocomplete
-                  options={availableCategories}
+                  options={categories}
+                  getOptionLabel={(option) => option.name || ''}
                   renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      label="Category" 
-                      variant="outlined" 
-                      required 
-                      fullWidth 
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
+                    <TextField
+                      {...params}
+                      label="Category"
+                      required
+                      error={Boolean(error && !formData.category)}
                     />
                   )}
                   value={formData.category}
                   onChange={(e, value) => handleInputChange(e, value, 'category')}
+                  loading={loading}
                 />
               </Grid>
 
               <Grid item xs={12} sm={6}>
                 <Autocomplete
-                  options={availableSubCategories}
+                  options={subCategories}
+                  getOptionLabel={(option) => option.name || ''}
                   renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      label="Sub-Category" 
-                      variant="outlined" 
-                      required 
-                      fullWidth 
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
+                    <TextField
+                      {...params}
+                      label="Sub-Category"
+                      required
+                      error={Boolean(error && !formData.subCategory)}
                     />
                   )}
                   value={formData.subCategory}
                   onChange={(e, value) => handleInputChange(e, value, 'subCategory')}
+                  disabled={!formData.category}
                 />
               </Grid>
 
               <Grid item xs={12} sm={6}>
                 <Autocomplete
                   options={suppliers}
-                  getOptionLabel={(option) => option.SellerName}
+                  getOptionLabel={(option) => option.SellerName || ''}
                   renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      label="Supplier" 
-                      variant="outlined" 
-                      required 
-                      fullWidth 
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
+                    <TextField
+                      {...params}
+                      label="Supplier"
+                      required
+                      error={Boolean(error && !formData.supplier)}
                     />
                   )}
                   value={formData.supplier}
@@ -391,16 +329,11 @@ const AddSparePart = () => {
                   <Grid item xs={12}>
                     <TextField
                       label="Product Name"
-                      variant="outlined"
                       fullWidth
                       required
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
                       value={product.productName}
                       onChange={(e) => handleProductChange(index, 'productName', e.target.value)}
+                      error={Boolean(error && !product.productName)}
                     />
                   </Grid>
 
@@ -408,17 +341,11 @@ const AddSparePart = () => {
                     <Autocomplete
                       options={conditions}
                       renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          label="Condition" 
-                          variant="outlined" 
-                          required 
-                          fullWidth 
-                          style={{
-                            transition: 'transform 0.2s, box-shadow 0.2s',
-                          }}
-                          onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                          onBlur={(e) => e.target.style.transform = 'scale(1)'}
+                        <TextField
+                          {...params}
+                          label="Condition"
+                          required
+                          error={Boolean(error && !product.condition)}
                         />
                       )}
                       value={product.condition}
@@ -429,50 +356,35 @@ const AddSparePart = () => {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label="Warehouse Location"
-                      variant="outlined"
                       fullWidth
                       required
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
                       value={product.warehouseLocation}
                       onChange={(e) => handleProductChange(index, 'warehouseLocation', e.target.value)}
+                      error={Boolean(error && !product.warehouseLocation)}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label="Unit Price"
-                      variant="outlined"
                       fullWidth
                       required
                       type="number"
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
                       value={product.unitPrice}
                       onChange={(e) => handleProductChange(index, 'unitPrice', e.target.value)}
+                      error={Boolean(error && !product.unitPrice)}
                     />
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label="Quantity"
-                      variant="outlined"
                       fullWidth
                       required
                       type="number"
-                      style={{
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                      }}
-                      onFocus={(e) => e.target.style.transform = 'scale(1.03)'}
-                      onBlur={(e) => e.target.style.transform = 'scale(1)'}
                       value={product.quantity}
                       onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
+                      error={Boolean(error && !product.quantity)}
                     />
                   </Grid>
 
@@ -481,22 +393,20 @@ const AddSparePart = () => {
                       Total: {product.total}
                     </Typography>
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                <TextField
-                    type="text"
-                    multiline  // Makes it a textarea
-                    rows={4}   // Number of visible rows
-                    fullWidth
-                    label="Warranty"
-                    name="Warranty"
-                    value={product.warranty || ''} // Use optional chaining to prevent accessing undefined
-                    onChange={(e) => handleProductChange(index, 'warranty', e.target.value)}
-                    
-                  />
-              </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Warranty"
+                      fullWidth
+                      multiline
+                      rows={4}
+                      value={product.warranty}
+                      onChange={(e) => handleProductChange(index, 'warranty', e.target.value)}
+                    />
+                  </Grid>
 
                   {products.length > 1 && (
-                    <Grid item xs={12} style={{ textAlign: 'right' }}>
+                    <Grid item xs={12} sx={{ textAlign: 'right' }}>
                       <IconButton onClick={() => removeProduct(index)} color="secondary">
                         <DeleteIcon />
                       </IconButton>
@@ -510,14 +420,8 @@ const AddSparePart = () => {
               onClick={addProduct}
               variant="contained"
               color="primary"
-              type="button"
               startIcon={<AddIcon />}
-              style={{
-                marginTop: '20px',
-                transition: 'transform 0.2s',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              sx={{ mt: 2 }}
             >
               Add Another Product
             </StyledButton>
@@ -528,18 +432,13 @@ const AddSparePart = () => {
             color="primary"
             fullWidth
             type="submit"
-            style={{
-              marginTop: '20px',
-              transition: 'transform 0.2s',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            disabled={loading}
+            sx={{ mt: 3 }}
           >
-            Save Spare Part
+            {loading ? <CircularProgress size={24} /> : 'Save Spare Part'}
           </StyledButton>
         </form>
       </Container>
-      </div>
     </ScrollableContainer>
   );
 };

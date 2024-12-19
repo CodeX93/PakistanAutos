@@ -55,7 +55,10 @@ const [stockQuantity, setStockQuantity] = useState(1);
 const [purchaseDate, setPurchaseDate] = useState("");
 const [bikeEntries, setBikeEntries] = useState([
   {
+    motorNo: "",
+    frameNo: "",
     chassisNumber: "",
+    engineNo: "",
     registrationNumber: "",
     condition: "new",
     mileage: 0,
@@ -286,7 +289,14 @@ const [errors, setErrors] = useState({});
     // Validate Bike Entries
     const currentTime = new Date().toLocaleTimeString();
     bikeEntries.forEach((entry, index) => {
-      if (!entry.chassisNumber) newErrors[`chassisNumber${index}`] = "Chassis Number is required.";
+      if (selectedType === 'Electric') {
+        if (!entry.motorNo) newErrors[`motorNo${index}`] = "Motor Number is required.";
+        if (!entry.frameNo) newErrors[`frameNo${index}`] = "Frame Number is required.";
+      } else {
+        if (!entry.chassisNumber) newErrors[`chassisNumber${index}`] = "Chassis Number is required.";
+        if (!entry.engineNo) newErrors[`engineNo${index}`] = "Engine Number is required.";
+      }
+      
       if (entry.condition !== "new" && !entry.registrationNumber)
         newErrors[`registrationNumber${index}`] = "Registration Number is required for used bikes.";
       if (!entry.purchasePrice || entry.purchasePrice <= 0)
@@ -313,22 +323,22 @@ const [errors, setErrors] = useState({});
         modelYear,
         stockQuantity,
         purchaseDate,
-        
         bikeEntries: bikeEntries.map((entry) => {
           const baseEntry = {
             ...entry,
             sellerInfo: sellerInformation,
-            warranty: entry.warranty || bikeModelObject.warranty, 
-
+            warranty: entry.warranty || bikeModelObject.warranty,
             type: selectedType,
           };
-  
+    
           // Add type-specific fields
           if (selectedType === "Electric") {
             // Extract battery details from the bike model
             const batteryDetails = bikeModelObject.power?.battery || {};
             return {
               ...baseEntry,
+              motorNo: entry.motorNo || "NA",
+              frameNo: entry.frameNo || "NA",
               power: bikeModelObject.power?.watt || "NA",
               range: bikeModelObject.range || "NA",
               batteryDetails: {
@@ -341,6 +351,8 @@ const [errors, setErrors] = useState({});
           } else {
             return {
               ...baseEntry,
+              engineNo: entry.engineNo,       
+              chassisNumber: entry.chassisNumber, 
               cc: bikeModelObject.power?.cc || "NA",
               stroke: bikeModelObject.engine?.stroke || "NA"
             };
@@ -829,19 +841,57 @@ const handleConditionChange = (index, value) => {
                 paddingRight: '8px',
               }}
             >
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2, marginTop: 1 }}>
-              <TextField
-                label="Chassis Number"
-                name="chassisNumber"
-                value={bikeEntries[index]?.chassisNumber || ''}
-                onChange={(e) => handleEntryChange(index, e)}
-                error={!!errors[`chassisNumber${index}`]}
-                helperText={errors[`chassisNumber${index}`]}
-              />
+              {selectedType === 'Electric' ? (
+                // Electric bike fields
+                <>
+                  <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2, marginTop: 1 }}>
+                    <TextField
+                      label="Motor Number"
+                      name="motorNo"
+                      value={bikeEntries[index]?.motorNo || ''}
+                      onChange={(e) => handleEntryChange(index, e)}
+                      error={!!errors[`motorNo${index}`]}
+                      helperText={errors[`motorNo${index}`]}
+                    />
+                  </FormControl>
 
+                  <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+                    <TextField
+                      label="Frame Number"
+                      name="frameNo"
+                      value={bikeEntries[index]?.frameNo || ''}
+                      onChange={(e) => handleEntryChange(index, e)}
+                      error={!!errors[`frameNo${index}`]}
+                      helperText={errors[`frameNo${index}`]}
+                    />
+                  </FormControl>
+                </>
+              ) : (
+                // Non-Electric bike fields
+                <>
+                  <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2, marginTop: 1 }}>
+                    <TextField
+                      label="Chassis Number"
+                      name="chassisNumber"
+                      value={bikeEntries[index]?.chassisNumber || ''}
+                      onChange={(e) => handleEntryChange(index, e)}
+                      error={!!errors[`chassisNumber${index}`]}
+                      helperText={errors[`chassisNumber${index}`]}
+                    />
+                  </FormControl>
 
-              {errors[`chassisNumber${index}`] && <FormHelperText error>{errors[`chassisNumber${index}`]}</FormHelperText>}
-              </FormControl>
+                  <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+                    <TextField
+                      label="Engine Number"
+                      name="engineNo"
+                      value={bikeEntries[index]?.engineNo || ''}
+                      onChange={(e) => handleEntryChange(index, e)}
+                      error={!!errors[`engineNo${index}`]}
+                      helperText={errors[`engineNo${index}`]}
+                    />
+                  </FormControl>
+                </>
+              )}
 
               <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
                 <InputLabel>Condition</InputLabel>

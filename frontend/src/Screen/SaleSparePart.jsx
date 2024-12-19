@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, TextField, Fab, Badge,  Paper, Snackbar,  Box,
-  useTheme,
-  InputAdornment
+  Button, TextField, Fab, Badge, Paper, Snackbar, Box, useTheme, InputAdornment,
+  CircularProgress
 } from '@mui/material';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';import SearchIcon from '@mui/icons-material/Search';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import SearchIcon from '@mui/icons-material/Search';
 import MuiAlert from '@mui/material/Alert';
 import CartDialog from '../Components/CartDiaglog';
 import { jsPDF } from "jspdf";
@@ -13,79 +13,94 @@ import logoData from '../Asset/Images/PakistanAutoLogo-bgRemoved.png';
 import url from '../baseUrl';
 
 const SaleSparePart = () => {
-  const theme =new useTheme();
+  const theme = useTheme();
   const [spareParts, setSpareParts] = useState([]);
   const [filteredSpareParts, setFilteredSpareParts] = useState([]);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [purchaserDetails, setPurchaserDetails] = useState({
     name: '',
     contactNo: '',
     cnic: '',
     address: ''
   });
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [notification, setNotification] = useState({ 
+    open: false, 
+    message: '', 
+    severity: 'success' 
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
-
-
 
   useEffect(() => {
     fetchSpareParts();
   }, []);
 
   useEffect(() => {
-    const filtered = spareParts.filter(part =>
-      part.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      part.category.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredSpareParts(filtered);
+    filterSpareParts();
   }, [searchTerm, spareParts]);
 
+  const filterSpareParts = () => {
+    const filtered = spareParts.filter(part =>
+      part.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      part.category?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      part.subCategory?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredSpareParts(filtered);
+  };
+
   const fetchSpareParts = async () => {
+    setIsLoading(true);
     try {
       const response = await fetch(`${url}/sparepart/`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       
-      // Ensure data is an array
-      if (Array.isArray(data)) {
-        setSpareParts(data);
-        setFilteredSpareParts(data);
-      } else {
-        throw new Error('Data received is not an array');
-      }
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error('Invalid data format received');
+      
+      setSpareParts(data);
+      setFilteredSpareParts(data);
+      setError(null);
     } catch (error) {
       console.error('Error fetching spare parts:', error);
       setError(error.message);
-      setNotification({ 
-        open: true, 
-        message: 'Failed to fetch spare parts: ' + error.message, 
-        severity: 'error' 
-      });
-      // Initialize with empty arrays if fetch fails
+      showNotification('Failed to fetch spare parts', 'error');
       setSpareParts([]);
       setFilteredSpareParts([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSearch = (event) => {
-    setSearchTerm(event.target.value);
+  const showNotification = (message, severity = 'success') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
   };
 
- // Modified addToCart function
-const addToCart = (sparePart) => {
-    const existingItemIndex = cart.findIndex(item => item.id === sparePart.id);
-    if (existingItemIndex !== -1) {
-      const updatedCart = cart.map((item, index) => 
-        index === existingItemIndex 
-          ? { 
-              ...item, 
-              quantity: Math.min(item.quantity + 1, sparePart.quantity), 
-              total: (Math.min(item.quantity + 1, sparePart.quantity)) * item.unitSellingPrice 
+  const addToCart = (sparePart) => {
+    if (!sparePart.quantity || sparePart.quantity <= 0) {
+      showNotification('Product out of stock', 'error');
+      return;
+    }
+
+    const existingItem = cart.find(item => item.id === sparePart.id);
+    if (existingItem) {
+      if (existingItem.quantity >= sparePart.quantity) {
+        showNotification('Maximum available quantity reached', 'warning');
+        return;
+      }
+
+      const updatedCart = cart.map(item => 
+        item.id === sparePart.id
+          ? {
+              ...item,
+              quantity: Math.min(item.quantity + 1, sparePart.quantity),
+              total: (Math.min(item.quantity + 1, sparePart.quantity)) * item.unitSellingPrice
             }
           : item
       );
@@ -96,156 +111,116 @@ const addToCart = (sparePart) => {
         quantity: 1,
         sellingDate: new Date().toISOString().split('T')[0],
         purchaseUnitPrice: sparePart.unitPrice,
-        unitSellingPrice: sparePart.unitPrice, // Initialize selling price same as purchase price
-        total: sparePart.unitPrice
+        unitSellingPrice: sparePart.unitPrice,
+        total: sparePart.unitPrice,
+        category: sparePart.category.name,
+        subCategory: sparePart.subCategory.name
       }]);
     }
-    setNotification({ open: true, message: 'Added to cart.', severity: 'success' });
+    showNotification('Added to cart');
   };
-  
-  // Modified updateCartItem function
+
   const updateCartItem = (index, field, value) => {
-    const updatedCart = cart.map((item, i) => {
-      if (i === index) {
-        const updatedItem = { ...item, [field]: value };
-        if (field === 'quantity') {
-          const availableQuantity = spareParts.find(part => part.id === item.id)?.quantity || 0;
-          updatedItem.quantity = Math.max(1, Math.min(parseInt(value) || 0, availableQuantity));
-        }
-        // Update total based on unitSellingPrice instead of purchaseUnitPrice
-        updatedItem.total = updatedItem.quantity * updatedItem.unitSellingPrice;
-        return updatedItem;
+    setCart(prevCart => {
+      const updatedCart = [...prevCart];
+      const item = { ...updatedCart[index] };
+      const originalItem = spareParts.find(part => part.id === item.id);
+
+      if (field === 'quantity') {
+        const newQuantity = Math.max(1, Math.min(
+          parseInt(value) || 0,
+          originalItem?.quantity || 0
+        ));
+        item.quantity = newQuantity;
+        item.total = newQuantity * item.unitSellingPrice;
+      } else if (field === 'unitSellingPrice') {
+        const newPrice = Math.max(0, parseFloat(value) || 0);
+        item.unitSellingPrice = newPrice;
+        item.total = item.quantity * newPrice;
       }
-      return item;
+
+      updatedCart[index] = item;
+      return updatedCart;
     });
-    setCart(updatedCart);
   };
-  
 
   const removeFromCart = (index) => {
-    setCart(cart.filter((_, i) => i !== index));
-    setNotification({ open: true, message: 'Removed from cart.', severity: 'warning' });
+    setCart(prevCart => prevCart.filter((_, i) => i !== index));
+    showNotification('Removed from cart', 'warning');
   };
-
-  const handlePurchaserDetailsChange = (e) => {
-    setPurchaserDetails({ ...purchaserDetails, [e.target.name]: e.target.value });
-  };
-
-  const calculateTotalAmount = () => {
-    return cart.reduce((total, item) => total + item.total, 0);
-  };
-
-  const handleCloseNotification = () => {
-    setNotification({ ...notification, open: false });
-  };
-
 
   const handleCheckout = async () => {
-    if (!purchaserDetails.name || !purchaserDetails.contactNo || !purchaserDetails.cnic || !purchaserDetails.address) {
-      setNotification({
-        open: true,
-        message: 'Please fill in all purchaser details',
-        severity: 'error',
-      });
-      return;
-    }
-  
+    if (!validatePurchaserDetails()) return;
     if (cart.length === 0) {
-      setNotification({
-        open: true,
-        message: 'Cart is empty',
-        severity: 'error',
-      });
+      showNotification('Cart is empty', 'error');
       return;
     }
-  
+
     setIsProcessing(true);
-  
     try {
-      // First, update the quantities in inventory for each item
-      const quantityUpdatePromises = cart.map((item) => 
+      // First update quantities
+      await Promise.all(cart.map(item =>
         fetch(`${url}/sparepart/decreaseQuantity/${item.productId}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            quantity: item.quantity, // Send the quantity to decrease
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity: item.quantity })
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to update quantity for ${item.productName}`);
         })
-      );
-  
-      // Wait for all quantity updates to complete
-      const quantityResults = await Promise.all(quantityUpdatePromises);
-  
-      // Check if any quantity updates failed
-      for (let i = 0; i < quantityResults.length; i++) {
-        if (!quantityResults[i].ok) {
-          const errorData = await quantityResults[i].json();
-          throw new Error(`Failed to update quantity for ${cart[i].productName}: ${errorData.error}`);
-        }
-      }
-  
-      // If all quantity updates successful, proceed with sale registration
-      
-      const requestBody = {
-        products: cart.map((item) => ({
+      ));
+
+      // Then create sale record
+      const saleData = {
+        products: cart.map(item => ({
           productName: item.productName,
           category: item.category,
+          subCategory: item.subCategory,
           condition: item.condition,
           quantity: item.quantity,
           unitPrice: item.purchaseUnitPrice,
           unitSellingPrice: item.unitSellingPrice,
-          sellingDate: item.sellingDate || new Date().toISOString().split('T')[0],
+          sellingDate: item.sellingDate,
+          warranty: item.warranty || ''
         })),
-        purchaserDetails: {
-          name: purchaserDetails.name,
-          contactNo: purchaserDetails.contactNo,
-          cnic: purchaserDetails.cnic,
-          address: purchaserDetails.address,
-        },
-        sellingDate: new Date().toISOString().split('T')[0],
+        purchaserDetails
       };
-      console.log(requestBody)
-  
-      const response = await fetch(`${url}/SparePartSaleinventory/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-  
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-  
-      await response.json();
-  
 
-      setNotification({
-        open: true,
-        message: 'Checkout completed successfully',
-        severity: 'success',
+      const saleResponse = await fetch(`${url}/SparePartSaleinventory/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(saleData)
       });
-  
-      generateInvoice(requestBody)
-      setCart([]); // Clear cart after successful checkout
-      setIsCartOpen(false); // Close cart dialog
-      fetchSpareParts()
-  
+
+      if (!saleResponse.ok) throw new Error('Failed to create sale record');
+
+      const result = await saleResponse.json();
+      showNotification('Sale completed successfully');
+      generateInvoice(saleData);
+      
+      // Reset state
+      setCart([]);
+      setIsCartOpen(false);
+      await fetchSpareParts();
+
     } catch (error) {
       console.error('Checkout Error:', error);
-      setNotification({
-        open: true,
-        message: 'Error processing checkout: ' + error.message,
-        severity: 'error',
-      });
+      showNotification(error.message, 'error');
     } finally {
       setIsProcessing(false);
     }
   };
-  
+
+  const validatePurchaserDetails = () => {
+    const requiredFields = ['name', 'contactNo', 'cnic', 'address'];
+    const missingFields = requiredFields.filter(field => !purchaserDetails[field]);
+    
+    if (missingFields.length > 0) {
+      showNotification(`Please fill in: ${missingFields.join(', ')}`, 'error');
+      return false;
+    }
+    return true;
+  };
+
   const generateInvoice = (requestBody) => {
     if (!requestBody) return;
   
@@ -406,33 +381,23 @@ const addToCart = (sparePart) => {
     doc.save(`Invoice_${purchaserDetails?.name || "Client"}.pdf`);
   };
 
-
   return (
     <Container>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '20px',
-          marginBottom: '20px',
-        }}
-      >
-        {/* Heading */}
-        <Typography
-          variant="h4"
-          style={{ fontWeight: 'bold' }}
-        >
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        my: 3
+      }}>
+        <Typography variant="h4" fontWeight="bold">
           Spare Parts Inventory
         </Typography>
 
-        {/* Search Bar */}
         <TextField
           variant="outlined"
-          label='Search spare parts'
           placeholder="Search spare parts..."
           value={searchTerm}
-          onChange={handleSearch}
+          onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -440,52 +405,75 @@ const addToCart = (sparePart) => {
               </InputAdornment>
             ),
           }}
-          sx={{
-            width: '350px',
-          }}
+          sx={{ width: 350 }}
         />
       </Box>
 
-      <TableContainer component={Paper} style={{ marginBottom: '80px' }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Product Name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Category</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Condition</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Available Quantity</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Unit Price</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredSpareParts.map((part) => (
-              <TableRow key={part.id} hover>
-                <TableCell>{part.productName}</TableCell>
-                <TableCell>{part.category}</TableCell>
-                <TableCell>{part.condition}</TableCell>
-                <TableCell>{part.quantity}</TableCell>
-                <TableCell>Rs. {part.unitPrice.toFixed(2)}</TableCell>
-                <TableCell align="center">
-                  <Button 
-                    variant="outlined" 
-                    color="primary" 
-                    onClick={() => addToCart(part)}
-                    disabled={part.quantity === 0}
-                  >
-                    Add to Order
-                  </Button>
+      {isLoading ? (
+        <Box display="flex" justifyContent="center" my={4}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Typography color="error" my={4}>
+          {error}
+        </Typography>
+      ) : (
+        <TableContainer component={Paper} sx={{ mb: 10 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
+                  Product Name
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
+                  Category
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
+                  Sub Category
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
+                  Condition
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
+                  Available Quantity
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
+                  Unit Price
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
+                  Action
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {filteredSpareParts.map((part) => (
+                <TableRow key={part.id} hover>
+                  <TableCell>{part.productName}</TableCell>
+                  <TableCell>{part.category.name}</TableCell>
+                  <TableCell>{part.subCategory.name}</TableCell>
+                  <TableCell>{part.condition}</TableCell>
+                  <TableCell>{part.quantity}</TableCell>
+                  <TableCell>Rs. {part.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={() => addToCart(part)}
+                      disabled={part.quantity === 0}
+                    >
+                      Add to Order
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       <Fab
         color="secondary"
-        aria-label="cart"
-        style={{ position: 'fixed', bottom: 16, right: 16 }}
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
         onClick={() => setIsCartOpen(true)}
       >
         <Badge badgeContent={cart.length} color="error">
@@ -494,20 +482,33 @@ const addToCart = (sparePart) => {
       </Fab>
 
       <CartDialog
-      isOpen={isCartOpen}
-      onClose={() => setIsCartOpen(false)}
-      cart={cart}
-      purchaserDetails={purchaserDetails}
-      handlePurchaserDetailsChange={handlePurchaserDetailsChange}
-      updateCartItem={updateCartItem}
-      removeFromCart={removeFromCart}
-      calculateTotalAmount={calculateTotalAmount}
-      handleCheckout={handleCheckout}
-      spareParts={spareParts}
-    />
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        purchaserDetails={purchaserDetails}
+        handlePurchaserDetailsChange={(e) => setPurchaserDetails(prev => ({
+          ...prev,
+          [e.target.name]: e.target.value
+        }))}
+        updateCartItem={updateCartItem}
+        removeFromCart={removeFromCart}
+        calculateTotalAmount={() => cart.reduce((total, item) => total + item.total, 0)}
+        handleCheckout={handleCheckout}
+        isProcessing={isProcessing}
+        spareParts={spareParts}
+      />
 
-      <Snackbar open={notification.open} autoHideDuration={4000} onClose={handleCloseNotification}>
-        <MuiAlert onClose={handleCloseNotification} severity={notification.severity} variant="filled">
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={4000}
+        onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+      >
+        <MuiAlert
+          elevation={6}
+          variant="filled"
+          severity={notification.severity}
+          onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+        >
           {notification.message}
         </MuiAlert>
       </Snackbar>

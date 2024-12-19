@@ -16,20 +16,25 @@ BikeInventoryRouter.post('/addBikeToInventory', async (req, res) => {
       purchaseDate
     } = Inventory;
 
+    // Validate base input data
     if (!manufacturerName || !model || !modelYear || !stockQuantity || !Array.isArray(bikeEntries) || bikeEntries.length === 0) {
       return res.status(400).json({ message: 'Invalid input data' });
     }
 
+    // Create or update manufacturer reference
     const manufacturerRef = doc(db, 'BikeInventory', manufacturerName);
     await setDoc(manufacturerRef, { name: manufacturerName }, { merge: true });
 
     const bikePromises = bikeEntries.map(async (entry) => {
       const {
+        motorNo,
+        frameNo,
+        engineNo,
         chassisNumber,
-        registrationNumber = 'NA',
+        registrationNumber,
         condition,
         mileage = 0,
-        registrationCity = 'NA',
+        registrationCity,
         purchasePrice,
         sellerInfo,
         type,
@@ -38,42 +43,44 @@ BikeInventoryRouter.post('/addBikeToInventory', async (req, res) => {
         power,
         batteryDetails,
         range,
-        warranty // Add warranty to destructuring
+        warranty
       } = entry;
 
-      if (!chassisNumber || !condition || !purchasePrice || !type) {
+      // Validate required fields for all bikes
+      if (!condition || !purchasePrice || !type) {
         throw new Error('Missing required fields in bike entry');
       }
 
-      // Validate electric bike specific fields
-      if (type === 'Electric' && (!batteryDetails?.capacity || !batteryDetails?.quantity ||
-        !batteryDetails?.volts || !batteryDetails?.amperes || !power || !range)) {
-        throw new Error('Missing required electric bike fields');
-      }
-
-      // Validate non-electric bike specific fields
-      if (type === 'Non-Electric' && (!cc || !stroke)) {
-        throw new Error('Missing required non-electric bike fields');
-      }
-
-      const bikeTypeCollection = collection(manufacturerRef, type);
+      // Create base bike data object
       const bikeData = {
         model,
         modelYear,
         stockQuantity: 1,
         purchaseDate,
-        chassisNumber,
         registrationNumber,
         condition,
         mileage,
         registrationCity,
         purchasePrice,
         sellerInfo,
-        warranty, // Add warranty to bikeData
+        warranty,
         createdAt: new Date()
       };
 
+      // Handle Electric bikes
       if (type === 'Electric') {
+        // Validate Electric bike fields
+        if (!motorNo || !frameNo) {
+          throw new Error('Motor Number and Frame Number are required for electric bikes');
+        }
+        if (!batteryDetails?.capacity || !batteryDetails?.quantity ||
+            !batteryDetails?.volts || !batteryDetails?.amperes || !power || !range) {
+          throw new Error('Missing required electric bike fields');
+        }
+
+        // Add Electric bike specific data
+        bikeData.motorNo = motorNo;
+        bikeData.frameNo = frameNo;
         bikeData.power = power;
         bikeData.range = range;
         bikeData.batteryDetails = {
@@ -82,19 +89,42 @@ BikeInventoryRouter.post('/addBikeToInventory', async (req, res) => {
           volts: batteryDetails.volts,
           amperes: batteryDetails.amperes
         };
-      } else if (type === 'Non-Electric') {
+      } 
+      // Handle Non-Electric bikes
+      else if (type === 'Non-Electric') {
+        // Validate Non-Electric bike fields
+        if (!engineNo || !chassisNumber) {
+          throw new Error('Engine Number and Chassis Number are required for non-electric bikes');
+        }
+        if (!cc || !stroke) {
+          throw new Error('Missing required non-electric bike fields');
+        }
+
+        // Add Non-Electric bike specific data
+        bikeData.engineNo = engineNo;
+        bikeData.chassisNumber = chassisNumber;
         bikeData.cc = cc;
         bikeData.stroke = stroke;
+      } 
+      else {
+        throw new Error('Invalid bike type');
       }
 
+      // Add bike to collection
+      const bikeTypeCollection = collection(manufacturerRef, type);
       await addDoc(bikeTypeCollection, bikeData);
     });
 
+    // Wait for all bikes to be added
     await Promise.all(bikePromises);
     res.status(200).json({ message: 'Bikes added successfully!' });
+
   } catch (error) {
     console.error('Error adding bikes:', error);
-    res.status(500).json({ message: 'Failed to add bikes', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to add bikes', 
+      error: error.message 
+    });
   }
 });
 
@@ -134,8 +164,8 @@ BikeInventoryRouter.get('/getAllInventory', async (req, res) => {
   }
 });
 
-BikeInventoryRouter.get('/getBikeByChassisNumber/:chassisNumber', async (req, res) => {
-  const { chassisNumber } = req.params;
+BikeInventoryRouter.get('/getBikeByChassisNumber/:searchNumber', async (req, res) => {
+  const { searchNumber } = req.params;
 
   try {
     const manufacturersRef = collection(db, 'BikeInventory');
@@ -144,41 +174,80 @@ BikeInventoryRouter.get('/getBikeByChassisNumber/:chassisNumber', async (req, re
 
     for (const manufacturerDoc of manufacturersSnapshot.docs) {
       const manufacturerId = manufacturerDoc.id;
-
+      
+      // Get references to both collections
       const electricBikesRef = collection(db, 'BikeInventory', manufacturerId, 'Electric');
       const nonElectricBikesRef = collection(db, 'BikeInventory', manufacturerId, 'Non-Electric');
 
-      const electricQuery = query(electricBikesRef, where('chassisNumber', '==', chassisNumber));
-      const nonElectricQuery = query(nonElectricBikesRef, where('chassisNumber', '==', chassisNumber));
+      // Create queries for Electric bikes (motorNo and frameNo)
+      const electricMotorQuery = query(electricBikesRef, where('motorNo', '==', searchNumber));
+      const electricFrameQuery = query(electricBikesRef, where('frameNo', '==', searchNumber));
 
-      const [electricSnapshot, nonElectricSnapshot] = await Promise.all([
-        getDocs(electricQuery),
-        getDocs(nonElectricQuery)
+      // Create queries for Non-Electric bikes (engineNo and chassisNumber)
+      const nonElectricEngineQuery = query(nonElectricBikesRef, where('engineNo', '==', searchNumber));
+      const nonElectricChassisQuery = query(nonElectricBikesRef, where('chassisNumber', '==', searchNumber));
+
+      // Execute all queries in parallel
+      const [
+        electricMotorSnapshot,
+        electricFrameSnapshot,
+        nonElectricEngineSnapshot,
+        nonElectricChassisSnapshot
+      ] = await Promise.all([
+        getDocs(electricMotorQuery),
+        getDocs(electricFrameQuery),
+        getDocs(nonElectricEngineQuery),
+        getDocs(nonElectricChassisQuery)
       ]);
 
-      electricSnapshot.forEach(doc => matchingBikes.push({ 
-        manufacturer: manufacturerId, 
-        type: 'Electric', 
+      // Process Electric bike results
+      electricMotorSnapshot.forEach(doc => matchingBikes.push({
+        manufacturer: manufacturerId,
+        type: 'Electric',
         id: doc.id,
-        ...doc.data() 
+        searchMatchedOn: 'motorNo',
+        ...doc.data()
       }));
-      
-      nonElectricSnapshot.forEach(doc => matchingBikes.push({ 
-        manufacturer: manufacturerId, 
+
+      electricFrameSnapshot.forEach(doc => matchingBikes.push({
+        manufacturer: manufacturerId,
+        type: 'Electric',
+        id: doc.id,
+        searchMatchedOn: 'frameNo',
+        ...doc.data()
+      }));
+
+      // Process Non-Electric bike results
+      nonElectricEngineSnapshot.forEach(doc => matchingBikes.push({
+        manufacturer: manufacturerId,
         type: 'Non-Electric',
         id: doc.id,
-        ...doc.data() 
+        searchMatchedOn: 'engineNo',
+        ...doc.data()
+      }));
+
+      nonElectricChassisSnapshot.forEach(doc => matchingBikes.push({
+        manufacturer: manufacturerId,
+        type: 'Non-Electric',
+        id: doc.id,
+        searchMatchedOn: 'chassisNumber',
+        ...doc.data()
       }));
     }
 
     if (matchingBikes.length === 0) {
-      return res.status(404).json({ message: 'No bike found with the provided chassis number' });
+      return res.status(404).json({ 
+        message: 'No bike found with the provided identification number'
+      });
     }
 
     return res.status(200).json({ bikes: matchingBikes });
   } catch (error) {
-    console.error('Error fetching bike by chassis number:', error);
-    return res.status(500).json({ message: 'Error fetching bike', error: error.message });
+    console.error('Error fetching bike:', error);
+    return res.status(500).json({ 
+      message: 'Error fetching bike', 
+      error: error.message 
+    });
   }
 });
 

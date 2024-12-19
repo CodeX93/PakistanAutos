@@ -17,30 +17,36 @@ import {
 
 const SaleSparePartRouter = express.Router();
 
-
-
-// Validate sale spare part data (including multiple products)
+// Validation helpers
 const validateSaleSparePartData = (data) => {
-  const requiredFields = ['purchaserDetails', 'products'];
+  if (!data) throw new Error('Sale data is required');
 
-  for (const field of requiredFields) {
-    if (!data[field]) {
-      throw new Error(`${field} is required`);
-    }
-  }
-  const requiredPurchaserFields = ['name', 'contactNo', 'cnic', 'address'];
-  for (const field of requiredPurchaserFields) {
+  // Check required main fields
+  const mainFields = ['purchaserDetails', 'products'];
+  mainFields.forEach(field => {
+    if (!data[field]) throw new Error(`${field} is required`);
+  });
+
+  // Validate purchaser details
+  const purchaserFields = ['name', 'contactNo', 'cnic', 'address'];
+  purchaserFields.forEach(field => {
     if (!data.purchaserDetails[field]) {
       throw new Error(`Purchaser ${field} is required`);
     }
-  }
+    if (typeof data.purchaserDetails[field] !== 'string' || 
+        !data.purchaserDetails[field].trim()) {
+      throw new Error(`Invalid purchaser ${field}`);
+    }
+  });
 
+  // Validate products array
   if (!Array.isArray(data.products) || data.products.length === 0) {
-    throw new Error('At least one product must be added to the cart');
+    throw new Error('At least one product is required');
   }
 
+  // Validate each product
   data.products.forEach((product, index) => {
-    const requiredProductFields = [
+    const productFields = [
       'productName',
       'category',
       'condition',
@@ -50,265 +56,247 @@ const validateSaleSparePartData = (data) => {
       'sellingDate'
     ];
 
-    for (const field of requiredProductFields) {
+    productFields.forEach(field => {
       if (!product[field]) {
         throw new Error(`Product ${index + 1}: ${field} is required`);
       }
-    }
+    });
 
     // Validate numeric fields
-    if (isNaN(product.quantity) || product.quantity < 0) {
-      throw new Error(`Product ${index + 1}: Quantity must be a non-negative number`);
-    }
-    if (isNaN(product.unitPrice) || product.unitPrice < 0) {
-      throw new Error(`Product ${index + 1}: Unit price must be a non-negative number`);
-    }
-    if (isNaN(product.unitSellingPrice) || product.unitSellingPrice < 0) {
-      throw new Error(`Product ${index + 1}: Unit selling price must be a non-negative number`);
+    const numericFields = ['quantity', 'unitPrice', 'unitSellingPrice'];
+    numericFields.forEach(field => {
+      const value = parseFloat(product[field]);
+      if (isNaN(value) || value < 0) {
+        throw new Error(`Product ${index + 1}: ${field} must be a valid non-negative number`);
+      }
+    });
+
+    // Validate dates
+    if (!isValidDate(product.sellingDate)) {
+      throw new Error(`Product ${index + 1}: Invalid selling date`);
     }
   });
 };
+
+const isValidDate = (dateString) => {
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date);
+};
+
+// Get next bill number using transaction
 const getNextBillCount = async () => {
   const MYDB = getFirestore();
   const billCounterRef = doc(MYDB, 'BillCounter', 'counter');
 
   try {
     const newBillCount = await runTransaction(MYDB, async (transaction) => {
-      const billCounterDoc = await transaction.get(billCounterRef);
+      const counterDoc = await transaction.get(billCounterRef);
 
-      if (!billCounterDoc.exists()) {
-        // If document doesn't exist, create it with billCount set to 1
+      if (!counterDoc.exists()) {
         transaction.set(billCounterRef, { billCount: 1 });
         return 1;
-      } else {
-        // Increment the billCount by 1
-        const currentBillCount = billCounterDoc.data().billCount;
-        const newBillCount = currentBillCount + 1;
-        transaction.update(billCounterRef, { billCount: increment(1) });
-        return newBillCount;
       }
+
+      const currentCount = counterDoc.data().billCount;
+      const nextCount = currentCount + 1;
+      transaction.update(billCounterRef, { billCount: increment(1) });
+      return nextCount;
     });
 
     return newBillCount;
   } catch (error) {
     console.error('Error getting next bill count:', error);
-    throw new Error('Failed to get bill count');
+    throw new Error('Failed to generate bill number');
   }
 };
 
-// Add sale spare part with incremented bill count
+// Add new sale
 SaleSparePartRouter.post('/add', async (req, res) => {
   try {
     const saleData = req.body;
-    
+    console.log('Received sale data:', JSON.stringify(saleData, null, 2));
+
     // Validate input
-    try {
-      validateSaleSparePartData(saleData);
-    } catch (validationError) {
-      return res.status(400).json({ error: validationError.message });
-    }
+    validateSaleSparePartData(saleData);
 
-    // Get the next billCount from the BillCounter collection
-    const nextBillCount = await getNextBillCount();
+    // Get next bill number
+    const billCount = await getNextBillCount();
 
-    // Prepare sale document data with products array and incremented billCount
-    const saleDocData = {
-      purchaserDetails: saleData.purchaserDetails,
-      products: saleData.products, // All products saved in an array
+    // Prepare sale document
+    const saleDocument = {
+      billCount,
+      purchaserDetails: {
+        name: saleData.purchaserDetails.name.trim(),
+        contactNo: saleData.purchaserDetails.contactNo.trim(),
+        cnic: saleData.purchaserDetails.cnic.trim(),
+        address: saleData.purchaserDetails.address.trim()
+      },
+      products: saleData.products.map(product => ({
+        ...product,
+        productName: product.productName.trim(),
+        category: product.category.trim(),
+        condition: product.condition.trim(),
+        quantity: parseInt(product.quantity),
+        unitPrice: parseFloat(product.unitPrice),
+        unitSellingPrice: parseFloat(product.unitSellingPrice),
+        totalAmount: parseInt(product.quantity) * parseFloat(product.unitSellingPrice)
+      })),
       status: 'active',
-      billCount: nextBillCount, // Assign the incremented billCount
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      totalBillAmount: saleData.products.reduce((total, product) => 
+        total + (parseInt(product.quantity) * parseFloat(product.unitSellingPrice)), 0)
     };
 
-    // Add the sale document to SaleSparePartInventory collection
-    const docRef = await addDoc(collection(db, 'SaleSparePartInventory'), saleDocData);
+    // Save to database
+    const docRef = await addDoc(collection(db, 'SaleSparePartInventory'), saleDocument);
 
-    // Return response with the new document ID
-    res.status(201).json({ 
-      message: 'Sale spare parts added successfully',
-      id: docRef.id 
+    console.log('Sale document saved successfully:', docRef.id);
+
+    res.status(201).json({
+      message: 'Sale record created successfully',
+      id: docRef.id,
+      billNumber: billCount
     });
+
   } catch (error) {
-    console.error('Error adding sale spare parts:', error);
-    res.status(500).json({ error: 'Error adding sale spare parts' });
+    console.error('Error creating sale record:', error);
+    res.status(500).json({
+      error: 'Failed to create sale record',
+      details: error.message
+    });
   }
 });
 
+// Get all sales
+SaleSparePartRouter.get('/', async (req, res) => {
+  try {
+    const salesRef = collection(db, 'SaleSparePartInventory');
+    const q = query(salesRef, where('status', '!=', 'deleted'));
+    const querySnapshot = await getDocs(q);
 
+    const sales = [];
+    querySnapshot.forEach(doc => {
+      const data = doc.data();
+      sales.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate(),
+        updatedAt: data.updatedAt?.toDate()
+      });
+    });
 
-// Update a sale spare part
+    res.status(200).json(sales);
+  } catch (error) {
+    console.error('Error fetching sales:', error);
+    res.status(500).json({
+      error: 'Failed to fetch sales records',
+      details: error.message
+    });
+  }
+});
+
+// Get sale by ID
+SaleSparePartRouter.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const saleRef = doc(db, 'SaleSparePartInventory', id);
+    const saleDoc = await getDoc(saleRef);
+
+    if (!saleDoc.exists()) {
+      return res.status(404).json({ error: 'Sale record not found' });
+    }
+
+    const data = saleDoc.data();
+    if (data.status === 'deleted') {
+      return res.status(404).json({ error: 'Sale record not found' });
+    }
+
+    res.status(200).json({
+      id: saleDoc.id,
+      ...data,
+      createdAt: data.createdAt?.toDate(),
+      updatedAt: data.updatedAt?.toDate()
+    });
+
+  } catch (error) {
+    console.error('Error fetching sale record:', error);
+    res.status(500).json({
+      error: 'Failed to fetch sale record',
+      details: error.message
+    });
+  }
+});
+
+// Update sale
 SaleSparePartRouter.put('/update/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
 
     // Validate input
-    try {
-      validateSaleSparePartData(updateData);
-    } catch (validationError) {
-      return res.status(400).json({ error: validationError.message });
-    }
+    validateSaleSparePartData(updateData);
 
-    // Check if the record exists
     const saleRef = doc(db, 'SaleSparePartInventory', id);
-    const saleSnapshot = await getDoc(saleRef);
-    if (!saleSnapshot.exists()) {
-      return res.status(404).json({ error: 'Sale spare part record not found' });
+    const saleDoc = await getDoc(saleRef);
+
+    if (!saleDoc.exists()) {
+      return res.status(404).json({ error: 'Sale record not found' });
     }
 
     const updatedData = {
-      ...updateData,
-      updatedAt: serverTimestamp()
+      purchaserDetails: {
+        name: updateData.purchaserDetails.name.trim(),
+        contactNo: updateData.purchaserDetails.contactNo.trim(),
+        cnic: updateData.purchaserDetails.cnic.trim(),
+        address: updateData.purchaserDetails.address.trim()
+      },
+      products: updateData.products.map(product => ({
+        ...product,
+        productName: product.productName.trim(),
+        category: product.category.trim(),
+        condition: product.condition.trim(),
+        quantity: parseInt(product.quantity),
+        unitPrice: parseFloat(product.unitPrice),
+        unitSellingPrice: parseFloat(product.unitSellingPrice),
+        totalAmount: parseInt(product.quantity) * parseFloat(product.unitSellingPrice)
+      })),
+      updatedAt: serverTimestamp(),
+      totalBillAmount: updateData.products.reduce((total, product) => 
+        total + (parseInt(product.quantity) * parseFloat(product.unitSellingPrice)), 0)
     };
 
     await updateDoc(saleRef, updatedData);
-    res.status(200).json({ message: 'Sale spare part updated successfully' });
-  } catch (error) {
-    console.error('Error updating sale spare part:', error);
-    res.status(500).json({ error: 'Error updating sale spare part' });
-  }
-});
 
-
-
-// Delete a sale spare part (soft delete)
-SaleSparePartRouter.delete('/delete/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Check if the record exists
-    const saleRef = doc(db, 'SaleSparePartInventory', id);
-    const saleSnapshot = await getDoc(saleRef);
-    if (!saleSnapshot.exists()) {
-      return res.status(404).json({ error: 'Sale spare part record not found' });
-    }
-
-    // Perform soft delete by updating status
-    await updateDoc(saleRef, {
-      status: 'deleted',
-      updatedAt: serverTimestamp()
+    res.status(200).json({
+      message: 'Sale record updated successfully',
+      id
     });
 
-    res.status(200).json({ message: 'Sale spare part deleted successfully' });
   } catch (error) {
-    console.error('Error deleting sale spare part:', error);
-    res.status(500).json({ error: 'Error deleting sale spare part' });
-  }
-});
-
-// Fetch all sale spare parts
-SaleSparePartRouter.get('/', async (req, res) => {
-  try {
-    const salesCollectionRef = collection(db, 'SaleSparePartInventory');
-    const q = query(salesCollectionRef, where('status', '!=', 'deleted'));
-    const querySnapshot = await getDocs(q);
-    const sales = [];
-    
-    querySnapshot.forEach((doc) => {
-      sales.push({ id: doc.id, ...doc.data() });
+    console.error('Error updating sale record:', error);
+    res.status(500).json({
+      error: 'Failed to update sale record',
+      details: error.message
     });
-
-    res.status(200).json(sales);
-  } catch (error) {
-    console.error('Error fetching sale spare parts:', error);
-    res.status(500).json({ error: 'Error fetching sale spare parts' });
   }
 });
 
-// Fetch a sale spare part by ID
-SaleSparePartRouter.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const saleRef = doc(db, 'SaleSparePartInventory', id);
-    const saleSnapshot = await getDoc(saleRef);
-
-    if (!saleSnapshot.exists()) {
-      return res.status(404).json({ error: 'Sale spare part record not found' });
-    }
-
-    if (saleSnapshot.data().status === 'deleted') {
-      return res.status(404).json({ error: 'Sale spare part record not found' });
-    }
-
-    res.status(200).json({ id: saleSnapshot.id, ...saleSnapshot.data() });
-  } catch (error) {
-    console.error('Error fetching sale spare part:', error);
-    res.status(500).json({ error: 'Error fetching sale spare part' });
-  }
-});
-
-// Search sale spare parts by date range
-SaleSparePartRouter.get('/search/date-range', async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-
-    if (!startDate || !endDate) {
-      return res.status(400).json({ error: 'Start date and end date are required' });
-    }
-
-    const salesCollectionRef = collection(db, 'SaleSparePartInventory');
-    const q = query(
-      salesCollectionRef,
-      where('sellingDate', '>=', startDate),
-      where('sellingDate', '<=', endDate),
-      where('status', '!=', 'deleted')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const sales = [];
-    
-    querySnapshot.forEach((doc) => {
-      sales.push({ id: doc.id, ...doc.data() });
-    });
-
-    res.status(200).json(sales);
-  } catch (error) {
-    console.error('Error searching sale spare parts:', error);
-    res.status(500).json({ error: 'Error searching sale spare parts' });
-  }
-});
-
-// Search sale spare parts by category
-SaleSparePartRouter.get('/search/category/:category', async (req, res) => {
-  try {
-    const { category } = req.params;
-    const salesCollectionRef = collection(db, 'SaleSparePartInventory');
-    const q = query(
-      salesCollectionRef,
-      where('category', '==', category),
-      where('status', '!=', 'deleted')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const sales = [];
-    
-    querySnapshot.forEach((doc) => {
-      sales.push({ id: doc.id, ...doc.data() });
-    });
-
-    res.status(200).json(sales);
-  } catch (error) {
-    console.error('Error searching sale spare parts by category:', error);
-    res.status(500).json({ error: 'Error searching sale spare parts by category' });
-  }
-});
-
-// Update sale spare part status
+// Update status
 SaleSparePartRouter.patch('/status/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!status || !['active', 'completed', 'cancelled', 'deleted'].includes(status)) {
+    if (!['active', 'completed', 'cancelled', 'deleted'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
     const saleRef = doc(db, 'SaleSparePartInventory', id);
-    const saleSnapshot = await getDoc(saleRef);
+    const saleDoc = await getDoc(saleRef);
 
-    if (!saleSnapshot.exists()) {
-      return res.status(404).json({ error: 'Sale spare part record not found' });
+    if (!saleDoc.exists()) {
+      return res.status(404).json({ error: 'Sale record not found' });
     }
 
     await updateDoc(saleRef, {
@@ -316,39 +304,78 @@ SaleSparePartRouter.patch('/status/:id', async (req, res) => {
       updatedAt: serverTimestamp()
     });
 
-    res.status(200).json({ message: 'Status updated successfully' });
+    res.status(200).json({
+      message: 'Status updated successfully',
+      id,
+      newStatus: status
+    });
+
   } catch (error) {
-    console.error('Error updating sale spare part status:', error);
-    res.status(500).json({ error: 'Error updating sale spare part status' });
+    console.error('Error updating status:', error);
+    res.status(500).json({
+      error: 'Failed to update status',
+      details: error.message
+    });
   }
 });
 
+// Delete (soft)
+SaleSparePartRouter.delete('/delete/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const saleRef = doc(db, 'SaleSparePartInventory', id);
+    const saleDoc = await getDoc(saleRef);
 
+    if (!saleDoc.exists()) {
+      return res.status(404).json({ error: 'Sale record not found' });
+    }
+
+    await updateDoc(saleRef, {
+      status: 'deleted',
+      updatedAt: serverTimestamp()
+    });
+
+    res.status(200).json({
+      message: 'Sale record deleted successfully',
+      id
+    });
+
+  } catch (error) {
+    console.error('Error deleting sale record:', error);
+    res.status(500).json({
+      error: 'Failed to delete sale record',
+      details: error.message
+    });
+  }
+});
+
+// Revert sale
 SaleSparePartRouter.post('/revert/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Start Firestore transaction
     await runTransaction(db, async (transaction) => {
       const saleRef = doc(db, 'SaleSparePartInventory', id);
-      const saleSnap = await transaction.get(saleRef);
+      const saleDoc = await transaction.get(saleRef);
 
-      if (!saleSnap.exists()) {
-        throw new Error('Sale record not found.');
+      if (!saleDoc.exists()) {
+        throw new Error('Sale record not found');
       }
 
-      const saleData = saleSnap.data();
+      const saleData = saleDoc.data();
 
+      // Process each product
       for (const product of saleData.products) {
         const { productName, category, quantity } = product;
 
         if (!productName || !category || !quantity || quantity <= 0) {
-          console.error(`Invalid product data: ${JSON.stringify(product)}`);
+          console.error('Invalid product data:', product);
           continue;
         }
 
-        console.log(`Processing Product: ${productName}, Category: ${category}, Quantity: ${quantity}`);
+        console.log(`Processing revert for: ${productName}`);
 
+        // Find product in inventory
         const inventoryRef = collection(db, 'SparePartInventory');
         const productQuery = query(
           inventoryRef,
@@ -359,39 +386,41 @@ SaleSparePartRouter.post('/revert/:id', async (req, res) => {
         const productSnapshot = await getDocs(productQuery);
 
         if (productSnapshot.empty) {
-          console.log(`Product ${productName} not found. Adding new entry.`);
-          const newDocRef = doc(inventoryRef);
-          transaction.set(newDocRef, {
+          // Create new inventory entry
+          const newProductRef = doc(inventoryRef);
+          transaction.set(newProductRef, {
             ...product,
             quantity,
             createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
           });
         } else {
-          productSnapshot.docs.forEach((doc) => {
-            console.log(`Updating product ${productName} with new quantity.`);
+          // Update existing inventory
+          productSnapshot.docs.forEach(doc => {
             transaction.update(doc.ref, {
               quantity: increment(quantity),
-              updatedAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
             });
           });
         }
       }
 
-      console.log('Deleting Sale Record:', id);
+      // Delete the sale record
       transaction.delete(saleRef);
     });
 
-    res.status(200).json({ message: 'Sale reverted and inventory updated successfully' });
+    res.status(200).json({
+      message: 'Sale reverted successfully',
+      id
+    });
+
   } catch (error) {
     console.error('Error reverting sale:', error);
-    res.status(500).json({ error: 'Failed to revert sale' });
+    res.status(500).json({
+      error: 'Failed to revert sale',
+      details: error.message
+    });
   }
 });
-
-
-
-
-
 
 export default SaleSparePartRouter;

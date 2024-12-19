@@ -39,7 +39,6 @@ import FlashOnIcon from '@mui/icons-material/FlashOn';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import url from '../baseUrl';
 
-
 const BikeList = () => {
   const theme = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,18 +50,15 @@ const BikeList = () => {
   const [selectedBike, setSelectedBike] = useState(null);
   const [loading, setLoading] = useState(true);
 
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         if (navigator.onLine) {
-          // Device is online, fetch data from the server
           const response = await fetch(`${url}/bikeinventory/getAllInventory`);
           const data = await response.json();
 
           if (data.inventory && Array.isArray(data.inventory)) {
-            // Save the fetched data to localStorage
             localStorage.setItem('bikeInventory', JSON.stringify(data.inventory));
             setBikeData(data.inventory);
           } else {
@@ -70,7 +66,6 @@ const BikeList = () => {
             setBikeData([]);
           }
         } else {
-          // Device is offline, try to load data from localStorage
           const cachedData = localStorage.getItem('bikeInventory');
           if (cachedData) {
             setBikeData(JSON.parse(cachedData));
@@ -81,7 +76,6 @@ const BikeList = () => {
         }
       } catch (error) {
         console.error('Error fetching bike inventory:', error);
-        // Fallback to cached data if there's an error
         const cachedData = localStorage.getItem('bikeInventory');
         if (cachedData) {
           setBikeData(JSON.parse(cachedData));
@@ -124,85 +118,99 @@ const BikeList = () => {
   };
 
   const filteredBikes = bikeData.filter((bike) => {
-    const matchesSearch = 
-      bike.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bike.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())||
-      bike.chassisNumber.toLowerCase().includes(searchTerm.toLowerCase());
-
-
-
+    const searchTermLower = searchTerm.toLowerCase();
+    
+    // Common searchable fields
+    const modelMatch = bike.model.toLowerCase().includes(searchTermLower);
+    const manufacturerMatch = bike.manufacturer.toLowerCase().includes(searchTermLower);
+    
+    // ID number matches based on bike type
+    const nonElectricMatches = bike.type === 'Non-Electric' && (
+      (bike.engineNo?.toLowerCase().includes(searchTermLower) ?? false) ||
+      (bike.chassisNumber?.toLowerCase().includes(searchTermLower) ?? false)
+    );
+    
+    const electricMatches = bike.type === 'Electric' && (
+      (bike.motorNo?.toLowerCase().includes(searchTermLower) ?? false) ||
+      (bike.frameNo?.toLowerCase().includes(searchTermLower) ?? false)
+    );
+  
+    const matchesSearch = modelMatch || 
+                         manufacturerMatch || 
+                         nonElectricMatches || 
+                         electricMatches;
+  
     const matchesType = filterType === 'All' || bike.type === filterType;
-
+  
     return matchesSearch && matchesType;
   });
 
   return (
-   
-<Container >
-<Box display="flex" alignItems="center" justifyContent="space-between" sx={{ marginBottom: '15px' }}>
-    <Typography variant="h4" sx={{ padding: '5px', fontWeight: 'bold' }} color="primary">
-      All Available Bikes
-    </Typography>
+    <Container>
+      <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ marginBottom: '15px' }}>
+        <Typography variant="h4" sx={{ padding: '5px', fontWeight: 'bold' }} color="primary">
+          All Available Bikes
+        </Typography>
 
-    <TextField
-      label="Search by Model or Manufacturer"
-      variant="outlined"
-      value={searchTerm}
-      onChange={handleSearchChange}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchIcon />
-          </InputAdornment>
-        ),
-      }}
-      sx={{
-        width: '300px', 
-        backgroundColor: theme.palette.background.paper,
-        borderRadius: '12px',
-      }}
-    />
-  </Box>
+        <TextField
+  label="Search by Model, Manufacturer, or any ID Number"
+  variant="outlined"
+  value={searchTerm}
+  onChange={handleSearchChange}
+  InputProps={{
+    startAdornment: (
+      <InputAdornment position="start">
+        <SearchIcon />
+      </InputAdornment>
+    ),
+  }}
+  sx={{
+    width: '400px', // Increased width to accommodate longer label
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: '12px',
+  }}
+/>
+      </Box>
 
-  <Breadcrumbs aria-label="breadcrumb" sx={{ marginBottom: '20px', fontSize: '1.1rem', fontWeight: '500' }}>
-    <Link
-      color={filterType === 'All' ? 'textPrimary' : theme.palette.text.secondary}
-      onClick={() => handleFilterChange('All')}
-      underline="hover"
-      sx={{
-        padding: '5px',
-        cursor: 'pointer',
-        fontSize: '1.1rem',
-        '&:hover': { color: theme.palette.primary.main },
-      }}
-    >
-      All
-    </Link>
-    <Link
-      color={filterType === 'Electric' ? 'textPrimary' : theme.palette.text.secondary}
-      onClick={() => handleFilterChange('Electric')}
-      underline="hover"
-      sx={{
-        cursor: 'pointer',
-        fontSize: '1.1rem',
-        '&:hover': { color: theme.palette.primary.main },
-      }}
-    >
-      Electric
-    </Link>
-    <Link
-      color={filterType === 'Non-Electric' ? 'textPrimary' : theme.palette.text.secondary}
-      onClick={() => handleFilterChange('Non-Electric')}
-      underline="hover"
-      sx={{
-        cursor: 'pointer',
-        fontSize: '1.1rem',
-        '&:hover': { color: theme.palette.primary.main },
-      }}
-    >
-      Non-Electric
-    </Link>
-  </Breadcrumbs>
+      <Breadcrumbs aria-label="breadcrumb" sx={{ marginBottom: '20px', fontSize: '1.1rem', fontWeight: '500' }}>
+        <Link
+          color={filterType === 'All' ? 'textPrimary' : theme.palette.text.secondary}
+          onClick={() => handleFilterChange('All')}
+          underline="hover"
+          sx={{
+            padding: '5px',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            '&:hover': { color: theme.palette.primary.main },
+          }}
+        >
+          All
+        </Link>
+        <Link
+          color={filterType === 'Electric' ? 'textPrimary' : theme.palette.text.secondary}
+          onClick={() => handleFilterChange('Electric')}
+          underline="hover"
+          sx={{
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            '&:hover': { color: theme.palette.primary.main },
+          }}
+        >
+          Electric
+        </Link>
+        <Link
+          color={filterType === 'Non-Electric' ? 'textPrimary' : theme.palette.text.secondary}
+          onClick={() => handleFilterChange('Non-Electric')}
+          underline="hover"
+          sx={{
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            '&:hover': { color: theme.palette.primary.main },
+          }}
+        >
+          Non-Electric
+        </Link>
+      </Breadcrumbs>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
@@ -217,7 +225,7 @@ const BikeList = () => {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', backgroundColor: theme.palette.grey[200] }}>
-                    Chassis No
+                    Identification Numbers
                   </TableCell>
                   <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem', backgroundColor: theme.palette.grey[200] }}>
                     Model
@@ -250,7 +258,19 @@ const BikeList = () => {
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((bike, index) => (
                     <TableRow key={index} hover sx={{ '&:nth-of-type(odd)': { backgroundColor: theme.palette.grey[50] } }}>
-                      <TableCell>{bike.chassisNumber}</TableCell>
+                     <TableCell>
+  {bike.type === 'Electric' ? (
+    <>
+      Motor No: {bike.motorNo}<br />
+      Frame No: {bike.frameNo}
+    </>
+  ) : (
+    <>
+      Engine No: {bike.engineNo}<br />
+      Chassis No: {bike.chassisNumber}
+    </>
+  )}
+</TableCell>
                       <TableCell>{bike.model}</TableCell>
                       <TableCell>{bike.manufacturer}</TableCell>
                       <TableCell>{bike.type}</TableCell>
@@ -258,16 +278,18 @@ const BikeList = () => {
                       <TableCell>{bike.modelYear}</TableCell>
                       <TableCell>{bike.mileage}</TableCell>
                       <TableCell>{bike.registrationCity}</TableCell>
-                      <TableCell >
-                        <IconButton     
-                        sx={{ color: 'primary',
-                              '&:hover': {
-                                color: '#03b5f1',
-                                transform: 'scale(1.1)',
-                                transition: 'transform 0.2s ease-in-out',
-                      },
-                         }}
-                        onClick={() => handleOpenModal(bike)}>
+                      <TableCell>
+                        <IconButton
+                          sx={{
+                            color: 'primary',
+                            '&:hover': {
+                              color: '#03b5f1',
+                              transform: 'scale(1.1)',
+                              transition: 'transform 0.2s ease-in-out',
+                            },
+                          }}
+                          onClick={() => handleOpenModal(bike)}
+                        >
                           <InfoIcon />
                         </IconButton>
                       </TableCell>
@@ -289,168 +311,198 @@ const BikeList = () => {
         </>
       )}
 
-<Modal open={openModal} onClose={handleCloseModal}>
-  <Box sx={modalStyle}>
-    {selectedBike && (
-      <div>
-        {/* Close Button */}
-        <IconButton
-          onClick={handleCloseModal}
-          sx={{
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            color: '#4CAF50',
-            '&:hover': {
-              color: 'red',
-              transform: 'scale(1.1)',
-              transition: 'transform 0.2s ease-in-out',
-            },
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
+      <Modal open={openModal} onClose={handleCloseModal}>
+        <Box sx={modalStyle}>
+          {selectedBike && (
+            <div>
+              <IconButton
+                onClick={handleCloseModal}
+                sx={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  color: '#4CAF50',
+                  '&:hover': {
+                    color: 'red',
+                    transform: 'scale(1.1)',
+                    transition: 'transform 0.2s ease-in-out',
+                  },
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
 
-        {/* Modal Header */}
-        <Typography
-          variant="h5"
-          sx={{
-            marginBottom: '20px',
-            fontWeight: 'bold',
-            color: '#4CAF50',
-            fontSize: '1.5rem',
-          }}
-        >
-          BIKE DETAILS
-        </Typography>
+              <Typography
+                variant="h5"
+                sx={{
+                  marginBottom: '20px',
+                  fontWeight: 'bold',
+                  color: '#4CAF50',
+                  fontSize: '1.5rem',
+                }}
+              >
+                BIKE DETAILS
+              </Typography>
 
-        <Divider sx={{ marginBottom: '20px' }} />
+              <Divider sx={{ marginBottom: '20px' }} />
 
-        {/* Details Grid */}
-        <Grid 
-  container 
-  spacing={2} 
-  sx={{ 
-    maxHeight: '400px', 
-    overflowY: 'auto', 
-    scrollbarColor: '#B0BEC5 transparent', 
-    '&::-webkit-scrollbar': {
-      width: '10px',
-    },
-    '&::-webkit-scrollbar-thumb': {
-      backgroundColor: '#4CAF50', 
-      borderRadius: '5px',
-    },
-    '&::-webkit-scrollbar-track': {
-      backgroundColor: 'transparent', 
-    },
-  }}
->
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <DirectionsBikeIcon color="primary" /> Chassis Number:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.chassisNumber}
-  </Grid>
+              <Grid
+                container
+                spacing={2}
+                sx={{
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  scrollbarColor: '#B0BEC5 transparent',
+                  '&::-webkit-scrollbar': {
+                    width: '10px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: '#4CAF50',
+                    borderRadius: '5px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'transparent',
+                  },
+                }}
+              >
+                {selectedBike.type === 'Electric' ? (
+  <>
+    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+      <DirectionsBikeIcon color="primary" /> Motor Number:
+    </Grid>
+    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+      {selectedBike.motorNo}
+    </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <BuildIcon color="primary" /> Model:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.model}
-  </Grid>
+    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+      <DirectionsBikeIcon color="primary" /> Frame Number:
+    </Grid>
+    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+      {selectedBike.frameNo}
+    </Grid>
+  </>
+) : (
+  <>
+    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+      <DirectionsBikeIcon color="primary" /> Engine Number:
+    </Grid>
+    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+      {selectedBike.engineNo}
+    </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <EmojiFlagsIcon color="primary" /> Manufacturer:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.manufacturer}
-  </Grid>
+    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+      <DirectionsBikeIcon color="primary" /> Chassis Number:
+    </Grid>
+    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+      {selectedBike.chassisNumber}
+    </Grid>
+  </>
+)}
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <BuildIcon color="primary" /> Engine Type:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.type}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <BuildIcon color="primary" /> Model:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.model}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <EmojiFlagsIcon color="primary" /> Condition:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.condition}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <EmojiFlagsIcon color="primary" /> Manufacturer:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.manufacturer}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <CalendarTodayIcon color="primary" /> Model Year:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.modelYear}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <BuildIcon color="primary" /> Engine Type:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.type}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <SpeedIcon color="primary" /> Mileage:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.mileage}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <EmojiFlagsIcon color="primary" /> Condition:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.condition}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <LocationCityIcon color="primary" /> Registration City:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.registrationCity}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <CalendarTodayIcon color="primary" /> Model Year:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.modelYear}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <AttachMoneyIcon color="primary" /> Purchase Price:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.purchasePrice}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <SpeedIcon color="primary" /> Mileage:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.mileage}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <PersonIcon color="primary" /> Seller Info:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.sellerInfo.name}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <LocationCityIcon color="primary" /> Registration City:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.registrationCity}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <SettingsIcon color="primary" /> CC:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.cc}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <AttachMoneyIcon color="primary" /> Purchase Price:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.purchasePrice}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <SettingsInputSvideoIcon color="primary" /> Stroke:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.stroke}
-  </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <PersonIcon color="primary" /> Seller Info:
+                </Grid>
+                <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                  {selectedBike.sellerInfo.name}
+                </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <FlashOnIcon color="primary" /> Power:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.power}
-  </Grid>
+                {selectedBike.type === 'Non-Electric' && (
+                  <>
+                    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <SettingsIcon color="primary" /> CC:
+                    </Grid>
+                    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                      {selectedBike.cc}
+                    </Grid>
 
-  <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-    <ShowChartIcon color="primary" /> Range:
-  </Grid>
-  <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
-    {selectedBike.range}
-  </Grid>
-</Grid>
+                    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <SettingsInputSvideoIcon color="primary" /> Stroke:
+                    </Grid>
+                    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                      {selectedBike.stroke}
+                    </Grid>
+                  </>
+                )}
 
+                {selectedBike.type === 'Electric' && (
+                  <>
+                    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <FlashOnIcon color="primary" /> Power:
+                    </Grid>
+                    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                      {selectedBike.power}
+                    </Grid>
 
-      </div>
-    )}
-  </Box>
-</Modal>
-</Container>
+                    <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <ShowChartIcon color="primary" /> Range:
+                    </Grid>
+                    <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+                      {selectedBike.range}
+                    </Grid>
+                  </>
+                )}
+              </Grid>
+            </div>
+          )}
+        </Box>
+      </Modal>
+    </Container>
   );
 };
 
