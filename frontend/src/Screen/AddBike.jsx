@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BikePurchaseCreditModal from '../Components/BikeCreditBuyPurchaseModal';
 
 import {
   Box,
@@ -53,6 +54,8 @@ const [selectedManufacturer, setSelectedManufacturer] = useState("");
 const [modelYear, setModelYear] = useState("");
 const [stockQuantity, setStockQuantity] = useState(1);
 const [purchaseDate, setPurchaseDate] = useState("");
+const [creditPurchaseModalOpen, setCreditPurchaseModalOpen] = useState(false);
+
 const [bikeEntries, setBikeEntries] = useState([
   {
     motorNo: "",
@@ -1064,17 +1067,59 @@ const handleConditionChange = (index, value) => {
             Next
           </Button>
         ) : (
-          <Button type="submit" variant="contained" color="primary" onClick={handleSubmit}>
+          <>
+          <Button
+  variant="outlined"
+  onClick={() => setCreditPurchaseModalOpen(true)}
+  sx={{
+    marginRight: 2,
+    textTransform: 'none',
+    padding: '8px 16px',
+    fontWeight: 'bold',
+    borderRadius: '30px',
+    '&:hover': {
+      backgroundColor: 'rgba(76, 175, 80, 0.1)',
+      transform: 'scale(1.02)',
+    },
+  }}
+>
+  Credit Purchase
+</Button>
+          
+<Button type="submit" variant="contained" color="primary" onClick={handleSubmit}>
             Add Bikes
           </Button>
+          </>
+          
+          
         )}
       </DialogActions>
         </Box>
 
       ))}
       </Box>
+      
 
     </Modal> 
+    <BikePurchaseCreditModal
+  open={creditPurchaseModalOpen}
+  onClose={() => setCreditPurchaseModalOpen(false)}
+  bikeData={{
+    manufacturer: selectedManufacturer,
+    model: selectedModel,
+    type: selectedType,
+    ...bikeEntries[currentStep]
+  }}
+  seller={sellerType === 'saved' ? selectedSeller : {
+    name: sellerName,
+    contactNo: sellerContactNo,
+    address: sellerAddress,
+    cnic: SellerCNIC
+  }}
+  priceDetails={{
+    purchasePrice: bikeEntries[currentStep]?.purchasePrice || 0
+  }}
+/>
       <Snackbar
         open={!!successMessage}
         autoHideDuration={6000}

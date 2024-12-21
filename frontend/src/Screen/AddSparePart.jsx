@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SparepartCreditPurchaseModal from '../Components/SparePartCreditBuyPurchaseModal';
 import {
   Grid,
   TextField,
@@ -33,7 +34,7 @@ const AddSparePart = () => {
     total: '',
     warranty: ''
   }]);
-
+  const [creditPurchaseModalOpen, setCreditPurchaseModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
@@ -437,7 +438,25 @@ const AddSparePart = () => {
           >
             {loading ? <CircularProgress size={24} /> : 'Save Spare Part'}
           </StyledButton>
+          
+          <StyledButton
+  onClick={() => setCreditPurchaseModalOpen(true)}
+  variant="outlined"
+  
+  fullWidth
+  sx={{ mr: 2,  mt:3}}
+  disabled={loading}
+>
+  Credit Purchase
+</StyledButton>
         </form>
+        <SparepartCreditPurchaseModal
+  open={creditPurchaseModalOpen}
+  onClose={() => setCreditPurchaseModalOpen(false)}
+  formData={formData}
+  products={products}
+  supplier={formData.supplier}
+/>
       </Container>
     </ScrollableContainer>
   );

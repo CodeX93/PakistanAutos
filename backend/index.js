@@ -20,7 +20,10 @@ import ExpenseRouter from "./Controller/ExpenseController.js";
 import LocalCreditBuyRouter from "./Controller/LocalCreditBuy.js"
 import CategoryRouter from "./Controller/SparePartCategory.js"
 import SubCategoryRouter from "./Controller/SparePartSubCategory.js";
-SparePartRouter
+import BikeCreditPurchaseRouter from "./Controller/BikePurchaseCreditBuy.js"
+import SparepartCreditPurchaseRouter from './Controller/SparePartPurchaseCreditBuy.js'
+
+
 
 dotenv.config();
 
@@ -65,6 +68,8 @@ app.use('/expense', ExpenseRouter)
 app.use('/localCreditBuy', LocalCreditBuyRouter)
 app.use('/category', CategoryRouter);
 app.use('/subcategory', SubCategoryRouter);
+app.use('/bikePurchaseCredit', BikeCreditPurchaseRouter);
+app.use('/sparepartCredit', SparepartCreditPurchaseRouter);
 
 
 // app.use("/api/user",upload.single('CandidateProfileImageURL'), UserRoute);

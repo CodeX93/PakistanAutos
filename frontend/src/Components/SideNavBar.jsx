@@ -68,6 +68,7 @@ import SoldSparePart from '../Screen/soldSpare';
 import ManageLocalCreditBuys from "../Screen/ManageLocalCreditBuys"
 import ManageSparePartCategory from '../Screen/ManageSparePartCategory';
 import ManageSparePartSubCategory from '../Screen/ManageSparePartSubCategory';
+import SparePartPurchaseCredits from "../Screen/SparePartPurchaseCredits"
 
 
 
@@ -300,9 +301,39 @@ function ModernNavigation() {
     },
     {
       id: 'creditBuys',
-      text: 'Credit Buys',
+      text: 'Credits',
       icon: <AccountBalanceWalletIcon />,
       children: [
+        {
+          text: 'Purchases',
+          icon: <Build />,
+          children: [
+        {
+          id: 'bikeCreditBuys',
+          text: 'Motor Bike',
+          icon: <BikeScooter />,
+          path: '/admindashboard/creditbuys/bike',
+        },
+        {
+          id: 'sparePartsCreditBuys',
+          text: 'Spare Parts',
+          icon: <Build />,
+          path: '/spare-part-purchase-credits',
+        },
+        {
+          id: 'localCreditBuys',
+          text: 'Local Credit Buy',
+          icon: <Build />,
+          path: '/admindashboard/creditbuys/localbuy',
+        },
+      ],
+    },
+
+
+        {
+          text: 'Sales',
+          icon: <Build />,
+          children: [
         {
           id: 'bikeCreditBuys',
           text: 'Motor Bike',
@@ -321,6 +352,8 @@ function ModernNavigation() {
           icon: <Build />,
           path: '/admindashboard/creditbuys/localbuy',
         },
+      ],
+    }
       ],
     },
     {
@@ -521,9 +554,13 @@ function ModernNavigation() {
               <Route path='/admindashboard/sales/sellParts' element={<SaleSparePart/>}/>
 
               {/* Credit Buys */}
+              <Route path="/spare-part-purchase-credits" element={<SparePartPurchaseCredits />} />
+
+
+
               <Route path="/admindashboard/creditbuys/bike" element={<BikeCreditBuys />} />
               <Route path="/admindashboard/creditbuys/spareparts" element={<SparePartCreditBuys />} />
-<Route path ='/admindashboard/creditbuys/localbuy' element={<ManageLocalCreditBuys/>}/>
+              <Route path ='/admindashboard/creditbuys/localbuy' element={<ManageLocalCreditBuys/>}/>
               {/* Business Partners */}
               <Route path="/admindashboard/partners/bikeSellers" element={<ManageBikeSellers />} />
               <Route path="/admindashboard/partners/bikeAgents" element={<ManageBikeAgents />} />
