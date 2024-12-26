@@ -24,7 +24,7 @@ const safelyAccessProperty = (obj, path, defaultValue = 'N/A') => {
 
 // Create Document Component
 const Invoice = ({ newSales }) => {
-  console.log('Invoice component received:', newSales);
+  
 
   if (!newSales || Object.keys(newSales).length === 0) {
     console.error('Invalid or empty newSales object');
