@@ -91,7 +91,7 @@ BikeSaleInventoryRouter.post("/revertSale/:id", async (req, res) => {
     const { id } = req.params;
   
     try {
-      console.log(`Reverting sale for ID: ${id}`);
+      
   
       // Fetch the sold bike data
       const docRef = doc(db, "SaleBikeInventory", id);

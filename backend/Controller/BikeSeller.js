@@ -6,7 +6,7 @@ const BikeSellerRouter = express.Router();
 
 // Function to validate input
 const validateInput = (data) => {
-  console.log(data)
+  
   const { SellerName, SellerContactNo, SellerAddress, SellerCNIC } = data;
   if (!SellerName || !SellerContactNo || !SellerAddress || !SellerCNIC) {
     return false;

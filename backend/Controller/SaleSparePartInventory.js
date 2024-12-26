@@ -114,7 +114,7 @@ const getNextBillCount = async () => {
 SaleSparePartRouter.post('/add', async (req, res) => {
   try {
     const saleData = req.body;
-    console.log('Received sale data:', JSON.stringify(saleData, null, 2));
+    
 
     // Validate input
     validateSaleSparePartData(saleData);
@@ -151,7 +151,7 @@ SaleSparePartRouter.post('/add', async (req, res) => {
     // Save to database
     const docRef = await addDoc(collection(db, 'SaleSparePartInventory'), saleDocument);
 
-    console.log('Sale document saved successfully:', docRef.id);
+    
 
     res.status(201).json({
       message: 'Sale record created successfully',
@@ -373,7 +373,7 @@ SaleSparePartRouter.post('/revert/:id', async (req, res) => {
           continue;
         }
 
-        console.log(`Processing revert for: ${productName}`);
+        
 
         // Find product in inventory
         const inventoryRef = collection(db, 'SparePartInventory');

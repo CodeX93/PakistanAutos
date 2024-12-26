@@ -69,8 +69,7 @@ SparePartCreditBuysRouter.put("/:id", async (req, res) => {
     try {
         const { paymentAmount, paymentDate, paymentMode } = req.body;
 
-        console.log(req.params)
-        console.log(req.body)
+        
 
         if (paymentAmount === undefined || !paymentDate || !paymentMode) {
             return res.status(400).json({ message: "Payment amount, date, and mode are required." });

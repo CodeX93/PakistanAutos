@@ -35,7 +35,7 @@ const isModelNameUnique = async (manufacturerId, type, modelName) => {
 
 // Add a bike model
 BikeModelRouter.post('/add', async (req, res) => {
-  console.log("Incoming data:", req.body); // Log the request body to check if all fields are present
+  
 
   try {
     const { type, manufacturerId, manufacturerName, modelName, manufacturerYear, engine, power, range } = req.body;
@@ -140,11 +140,11 @@ BikeModelRouter.get('/models', async (req, res) => {
     // Try fetching Electric bikes using collectionGroup
     const electricGroup = collectionGroup(db, 'Electric');
     const electricSnapshot = await getDocs(electricGroup);
-    console.log('Electric models found:', electricSnapshot.size);
+    
     
     for (const doc of electricSnapshot.docs) {
       const parentPath = doc.ref.parent.parent;
-      console.log('Electric doc parent path:', parentPath.id);
+      
       
       allBikeModels.push({
         parentId: parentPath.id,
@@ -157,11 +157,11 @@ BikeModelRouter.get('/models', async (req, res) => {
     // Try fetching Non-Electric bikes using collectionGroup
     const nonElectricGroup = collectionGroup(db, 'Non-Electric');
     const nonElectricSnapshot = await getDocs(nonElectricGroup);
-    console.log('Non-Electric models found:', nonElectricSnapshot.size);
+    
     
     for (const doc of nonElectricSnapshot.docs) {
       const parentPath = doc.ref.parent.parent;
-      console.log('Non-Electric doc parent path:', parentPath.id);
+      
       
       allBikeModels.push({
         parentId: parentPath.id,
@@ -173,11 +173,11 @@ BikeModelRouter.get('/models', async (req, res) => {
 
     // If no data found
     if (allBikeModels.length === 0) {
-      console.log('No bike models found in the database');
+      
       return res.status(404).json({ message: 'No bike models found' });
     }
 
-    console.log('Total models found:', allBikeModels.length);
+    
     res.status(200).json(allBikeModels);
     
   } catch (error) {

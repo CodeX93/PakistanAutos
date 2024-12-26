@@ -65,7 +65,7 @@ const SoldSparePartsSalesInventory = () => {
     },
   };
 
-  console.log('Warranty Claim Details:', warrantyClaimData);
+  
 
   try {
     const response = await fetch(`${url}/warranty/add`, {
@@ -82,7 +82,7 @@ const SoldSparePartsSalesInventory = () => {
     }
 
     const responseData = await response.json();
-    console.log('Warranty claim added successfully:', responseData);
+    
 
     // Add the new claim to the active claims
     setClaims((prevClaims) =>

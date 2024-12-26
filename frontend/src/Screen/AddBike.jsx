@@ -213,7 +213,7 @@ const [errors, setErrors] = useState({});
       fetch(`${url}/bikeseller/`)
         .then((response) => response.json())
         .then((data) => {
-          console.log('Fetched saved sellers:', data);
+          
           setSavedSellers(data);
           localStorage.setItem('savedSellers', JSON.stringify(data)); // Save to local storage
           if (data.length > 0) {
@@ -416,7 +416,7 @@ const [errors, setErrors] = useState({});
       },
     };
   
-    console.log("Request body:", requestBody); // For debugging
+    
   
     fetch(`${url}/bikeinventory/addBikeToInventory`, {
       method: "POST",
@@ -434,7 +434,7 @@ const [errors, setErrors] = useState({});
         return response.json();
       })
       .then((data) => {
-        console.log("Success:", data);
+        
         setSuccessMessage("Bike added successfully!");
         setOpen(false); // Close the modal on success
       })
@@ -482,7 +482,7 @@ const [errors, setErrors] = useState({});
   };
 
   const handleSavedSellerChange = (event, newValue) => {
-    console.log('Selected seller:', newValue);
+    
     setSelectedSeller(newValue);
     
     // Update all bike entries with the selected seller info

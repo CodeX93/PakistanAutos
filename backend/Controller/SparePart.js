@@ -42,8 +42,7 @@ const isValidProduct = (product) => {
 SparePartRouter.post('/addSparePart', async (req, res) => {
   try {
     const { formData, products } = req.body;
-    console.log('Received Form Data:', JSON.stringify(formData, null, 2));
-    console.log('Received Products:', JSON.stringify(products, null, 2));
+    
 
     // Form data validation
     if (!formData) {

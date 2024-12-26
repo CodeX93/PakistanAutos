@@ -51,7 +51,7 @@ const BikeList = (role) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log(role)
+    
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -119,7 +119,7 @@ const BikeList = (role) => {
   };
 
   const filteredBikes = bikeData.filter((bike) => {
-    console.log(bike)
+    
     const searchTermLower = searchTerm.toLowerCase();
     
     // Common searchable fields

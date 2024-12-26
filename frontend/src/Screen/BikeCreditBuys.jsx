@@ -742,14 +742,14 @@ const BikeCreditBuys = () => {
   const handleMakePayment = async (payment) => {
     if (!selectedBuy) return;
   
-    console.log(selectedBuy)
+    
     try {
       const response = await fetch(`${url}/BikeCreditBuy/update/${selectedBuy.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payment),
       });
-  console.log(payment)
+  
       if (!response.ok) {
         throw new Error("Failed to update payment");
       }

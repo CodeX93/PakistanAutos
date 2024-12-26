@@ -325,7 +325,7 @@ const updateBalance = (method, value) => {
       
       };
   
-      console.log("Sending sales data:", newSales);
+      
   
       // Make the API request
       const response = await fetch(`${url}/bikeSaleinventory/`, {
@@ -344,7 +344,7 @@ const updateBalance = (method, value) => {
       }
   
       const responseData = await response.json();
-      console.log("Sales data saved successfully:", responseData);
+      
   
       setSnackbarMessage('Bike sale recorded successfully.');
       setSnackbarSeverity('success');

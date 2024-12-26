@@ -111,7 +111,7 @@ const SparePartApp = (role) => {
         body: JSON.stringify(requestBody),
       });
 
-      console.log(requestBody);
+      
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to update spare part: ${response.status} ${response.statusText}\n${errorText}`);

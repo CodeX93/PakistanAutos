@@ -45,7 +45,7 @@ const validateWarrantyClaimData = (data) => {
 
 // Post warranty claim
 WarrantyClaimRouter.post('/add', async (req, res) => {
-    console.log('Received warranty claim request:', req.body); // Log the request body
+    
   
     try {
       const warrantyClaimData = req.body;

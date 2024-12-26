@@ -133,7 +133,7 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
       }
   
       const result = await response.json();
-      console.log("Credit purchase created successfully:", result);
+      
   
       // Generate invoice with the same data
       generateInvoice(requestBody);
@@ -245,7 +245,7 @@ const SparePartCreditBuyModal = ({ open, onClose, purchaserDetails, products, to
     // Start Generating Invoice
     addHeader();
     addWatermark();
-    console.log(products)
+    
   
     const invoiceNumber = Math.floor(100000 + Math.random() * 900000);
     const now = new Date();
