@@ -51,7 +51,7 @@ const cities = [
   'Nawabshah',
 ];
 
-const BikeSearch = () => {
+const BikeSearch = (role) => {
   // State Definitions
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -895,6 +895,7 @@ checkPageBreak();
                   )}
 
                   {/* Purchase Price */}
+                  {role.role !== 'manager' && (
                   <Grid item xs={12}>
                     <TextField
                       label="Purchase Price"
@@ -911,6 +912,7 @@ checkPageBreak();
                       }}
                     />
                   </Grid>
+                  )}
                 </Grid>
               </CardContent>
             </Card>
@@ -979,6 +981,7 @@ checkPageBreak();
                       sx={{ backgroundColor: '#e8f5e9', borderRadius: 2 }}
                     />
                   </Grid>
+                  {role.role !== 'manager' && (
                   <Grid item xs={12}>
                     <TextField
                       label="Profit"
@@ -995,6 +998,7 @@ checkPageBreak();
                       }}
                     />
                   </Grid>
+                  )}
                 </Grid>
               </CardContent>
             </Card>

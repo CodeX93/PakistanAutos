@@ -19,6 +19,7 @@ import SparePartCreditBuyModal from './SparePartCreditBuyModal'; // Import the m
 
 
 const CartDialog = ({
+  role,
   isOpen,
   onClose,
   cart,
@@ -189,7 +190,9 @@ const CartDialog = ({
                           variant="outlined"
                         />
                       </Grid>
+                      {role.role !== 'manager' && (
                       <Grid item xs={12} sm={6} md={3}>
+                        
                         <TextField
                           fullWidth
                           label="Purchase Unit Price"
@@ -201,6 +204,7 @@ const CartDialog = ({
                           }}
                         />
                       </Grid>
+                      )}
                       <Grid item xs={12} sm={6} md={3}>
                         <TextField
                           fullWidth

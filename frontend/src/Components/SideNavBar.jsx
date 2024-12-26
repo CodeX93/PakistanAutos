@@ -69,6 +69,7 @@ import ManageLocalCreditBuys from "../Screen/ManageLocalCreditBuys"
 import ManageSparePartCategory from '../Screen/ManageSparePartCategory';
 import ManageSparePartSubCategory from '../Screen/ManageSparePartSubCategory';
 import SparePartPurchaseCredits from "../Screen/SparePartPurchaseCredits"
+import BikePurchaseCredits from '../Screen/BikePurchaseCreditBuys';
 
 
 
@@ -312,7 +313,7 @@ function ModernNavigation() {
           id: 'bikeCreditBuys',
           text: 'Motor Bike',
           icon: <BikeScooter />,
-          path: '/admindashboard/creditbuys/bike',
+          path: '/admindashboard/creditbuys/bikepurchase',
         },
         {
           id: 'sparePartsCreditBuys',
@@ -554,8 +555,9 @@ function ModernNavigation() {
               <Route path='/admindashboard/sales/sellParts' element={<SaleSparePart/>}/>
 
               {/* Credit Buys */}
+              <Route path="/admindashboard/creditbuys/bikepurchase" element={<BikePurchaseCredits />} />
               <Route path="/spare-part-purchase-credits" element={<SparePartPurchaseCredits />} />
-
+             
 
 
               <Route path="/admindashboard/creditbuys/bike" element={<BikeCreditBuys />} />

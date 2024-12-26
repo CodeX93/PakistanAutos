@@ -36,14 +36,19 @@ BikeInventoryRouter.post('/addBikeToInventory', async (req, res) => {
         mileage = 0,
         registrationCity,
         purchasePrice,
+        commissionPrice = 0,
+        expenses = [],
+        totalExpenses = 0,
         sellerInfo,
         type,
         cc,
         stroke,
         power,
-        batteryDetails,
         range,
-        warranty
+        batteryDetails,
+        warranty,
+        purchaseDate: entryPurchaseDate,
+        purchaseTime
       } = entry;
 
       // Validate required fields for all bikes
@@ -56,12 +61,17 @@ BikeInventoryRouter.post('/addBikeToInventory', async (req, res) => {
         model,
         modelYear,
         stockQuantity: 1,
-        purchaseDate,
-        registrationNumber,
+        purchaseDate: entryPurchaseDate || purchaseDate,
+        purchaseTime: purchaseTime || new Date().toLocaleTimeString(),
+        registrationNumber: condition === 'new' ? 'NA' : registrationNumber,
         condition,
-        mileage,
-        registrationCity,
-        purchasePrice,
+        mileage: condition === 'new' ? 0 : mileage,
+        registrationCity: condition === 'new' ? 'NA' : registrationCity,
+        purchasePrice: Number(purchasePrice),
+        commissionPrice: Number(commissionPrice),
+        expenses,
+        totalExpenses: Number(totalExpenses),
+        finalPurchasePrice: Number(purchasePrice) + Number(commissionPrice) + Number(totalExpenses),
         sellerInfo,
         warranty,
         createdAt: new Date()
@@ -73,22 +83,20 @@ BikeInventoryRouter.post('/addBikeToInventory', async (req, res) => {
         if (!motorNo || !frameNo) {
           throw new Error('Motor Number and Frame Number are required for electric bikes');
         }
-        if (!batteryDetails?.capacity || !batteryDetails?.quantity ||
-            !batteryDetails?.volts || !batteryDetails?.amperes || !power || !range) {
-          throw new Error('Missing required electric bike fields');
-        }
 
         // Add Electric bike specific data
         bikeData.motorNo = motorNo;
         bikeData.frameNo = frameNo;
-        bikeData.power = power;
-        bikeData.range = range;
-        bikeData.batteryDetails = {
-          capacity: batteryDetails.capacity,
-          quantity: batteryDetails.quantity,
-          volts: batteryDetails.volts,
-          amperes: batteryDetails.amperes
-        };
+        bikeData.power = power || 'NA';
+        bikeData.range = range || 'NA';
+        if (batteryDetails) {
+          bikeData.batteryDetails = {
+            capacity: batteryDetails.capacity || 'NA',
+            quantity: batteryDetails.quantity || 1,
+            volts: batteryDetails.volts || 'NA',
+            amperes: batteryDetails.amperes || 'NA'
+          };
+        }
       } 
       // Handle Non-Electric bikes
       else if (type === 'Non-Electric') {
@@ -96,15 +104,12 @@ BikeInventoryRouter.post('/addBikeToInventory', async (req, res) => {
         if (!engineNo || !chassisNumber) {
           throw new Error('Engine Number and Chassis Number are required for non-electric bikes');
         }
-        if (!cc || !stroke) {
-          throw new Error('Missing required non-electric bike fields');
-        }
 
         // Add Non-Electric bike specific data
         bikeData.engineNo = engineNo;
         bikeData.chassisNumber = chassisNumber;
-        bikeData.cc = cc;
-        bikeData.stroke = stroke;
+        bikeData.cc = cc || 'NA';
+        bikeData.stroke = stroke || 'NA';
       } 
       else {
         throw new Error('Invalid bike type');

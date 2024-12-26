@@ -20,6 +20,8 @@ import {
   Button,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import url from '../baseUrl'
 
 
@@ -69,11 +71,61 @@ const [bikeEntries, setBikeEntries] = useState([
     purchasePrice: "",
     purchaseDate: "",
     purchaseTime: "",
+    commissionPrice: 2000, // Default commission price
+    expenses: [{ name: "", cost: "" }], // Initialize with one empty expense
+    totalExpenses: 0,
   },
 ]);
 const [errors, setErrors] = useState({});
 
-  
+  // Add function to handle expense changes
+  const handleExpenseChange = (bikeIndex, expenseIndex, field, value) => {
+    const newEntries = [...bikeEntries];
+    if (!newEntries[bikeIndex].expenses) {
+      newEntries[bikeIndex].expenses = [];
+    }
+    
+    newEntries[bikeIndex].expenses[expenseIndex] = {
+      ...newEntries[bikeIndex].expenses[expenseIndex],
+      [field]: value
+    };
+
+    // Calculate total expenses
+    const totalExpenses = newEntries[bikeIndex].expenses.reduce((sum, expense) => {
+      return sum + (Number(expense.cost) || 0);
+    }, 0);
+
+    newEntries[bikeIndex].totalExpenses = totalExpenses;
+
+    // Update final purchase price including commission and expenses
+    const basePrice = Number(newEntries[bikeIndex].purchasePrice) || 0;
+    const commission = Number(newEntries[bikeIndex].commissionPrice) || 0;
+    newEntries[bikeIndex].finalPurchasePrice = basePrice + commission + totalExpenses;
+
+    setBikeEntries(newEntries);
+    clearErrors();
+  };
+
+  // Add function to add new expense fields
+  const addExpenseField = (bikeIndex) => {
+    const newEntries = [...bikeEntries];
+    newEntries[bikeIndex].expenses.push({ name: "", cost: "" });
+    setBikeEntries(newEntries);
+  };
+
+  // Add function to remove expense fields
+  const removeExpenseField = (bikeIndex, expenseIndex) => {
+    const newEntries = [...bikeEntries];
+    newEntries[bikeIndex].expenses.splice(expenseIndex, 1);
+    
+    // Recalculate total expenses
+    const totalExpenses = newEntries[bikeIndex].expenses.reduce((sum, expense) => {
+      return sum + (Number(expense.cost) || 0);
+    }, 0);
+
+    newEntries[bikeIndex].totalExpenses = totalExpenses;
+    setBikeEntries(newEntries);
+  };
 
   
 
@@ -448,24 +500,29 @@ const [errors, setErrors] = useState({});
 
 
   // Set mileage to 0 for new bikes and prevent negative values
-const handleConditionChange = (index, value) => {
-  const newEntries = [...bikeEntries];
-  if (!newEntries[index]) {
-    newEntries[index] = {};
-  }
-  newEntries[index].condition = value;
-  if (value === 'new') {
-    newEntries[index].registrationCity = 'NA';
-    newEntries[index].registrationNumber = 'NA';
-    newEntries[index].mileage = 0;
-
-  } else {
-    newEntries[index].mileage = ''; // Clear mileage field for used bikes
-    newEntries[index].registrationCity = '';
-    newEntries[index].registrationNumber = '';
-  }
-  setBikeEntries(newEntries);
-};
+  const handleConditionChange = (index, value) => {
+    const newEntries = [...bikeEntries];
+    if (!newEntries[index]) {
+      newEntries[index] = {};
+    }
+    newEntries[index].condition = value;
+    if (value === 'new') {
+      newEntries[index].registrationCity = 'NA';
+      newEntries[index].registrationNumber = 'NA';
+      newEntries[index].mileage = 0;
+      newEntries[index].commissionPrice = 0;        // Reset commission
+      newEntries[index].expenses = [];              // Clear expenses
+      newEntries[index].totalExpenses = 0;          // Reset total expenses
+    } else {
+      newEntries[index].mileage = '';
+      newEntries[index].registrationCity = '';
+      newEntries[index].registrationNumber = '';
+      newEntries[index].commissionPrice = 2000;     // Default commission for used bikes
+      newEntries[index].expenses = [{ name: "", cost: "" }]; // Initialize expenses
+      newEntries[index].totalExpenses = 0;          // Initialize total expenses
+    }
+    setBikeEntries(newEntries);
+  };
 
 
   const clearErrors = () => {
@@ -954,6 +1011,95 @@ const handleConditionChange = (index, value) => {
                 {errors[`registrationCity${index}`] && <FormHelperText error>{errors[`registrationCity${index}`]}</FormHelperText>}
               </FormControl>
 
+              {/* Commission Price and Expenses - Only shown for used bikes */}
+{bikeEntries[index]?.condition === 'used' && (
+  <>
+    <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
+      <TextField
+        label="Commission Price"
+        type="number"
+        name="commissionPrice"
+        value={bikeEntries[index]?.commissionPrice || 2000}
+        onChange={(e) => {
+          const newEntries = [...bikeEntries];
+          newEntries[index].commissionPrice = Number(e.target.value);
+          setBikeEntries(newEntries);
+        }}
+        InputProps={{
+          inputProps: { min: 0 }
+        }}
+      />
+    </FormControl>
+
+    <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'medium' }}>
+      Additional Expenses
+    </Typography>
+    
+    {bikeEntries[index]?.expenses?.map((expense, expenseIndex) => (
+      <Box key={expenseIndex} sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <TextField
+          label="Expense Name"
+          value={expense.name}
+          onChange={(e) => handleExpenseChange(index, expenseIndex, 'name', e.target.value)}
+          sx={{ flex: 1 }}
+        />
+        <TextField
+          label="Cost"
+          type="number"
+          value={expense.cost}
+          onChange={(e) => handleExpenseChange(index, expenseIndex, 'cost', e.target.value)}
+          sx={{ flex: 1 }}
+        />
+        {expenseIndex > 0 && (
+          <IconButton 
+            onClick={() => removeExpenseField(index, expenseIndex)}
+            sx={{ color: 'error.main' }}
+          >
+            <DeleteIcon />
+          </IconButton>
+        )}
+      </Box>
+    ))}
+    
+    <Button
+      startIcon={<AddIcon />}
+      onClick={() => addExpenseField(index)}
+      sx={{
+        mb: 2,
+        color: '#4CAF50',
+        borderColor: '#4CAF50',
+        '&:hover': {
+          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+          borderColor: '#4CAF50',
+        },
+      }}
+    >
+      Add Expense
+    </Button>
+
+    {/* Price Summary Box */}
+    <Box sx={{ 
+      mt: 2, 
+      p: 2, 
+      bgcolor: 'rgba(76, 175, 80, 0.1)', 
+      borderRadius: 1,
+      border: '1px solid #4CAF50'
+    }}>
+      <Typography sx={{ mb: 1 }}>Base Price: ₨ {bikeEntries[index]?.purchasePrice || 0}</Typography>
+      <Typography sx={{ mb: 1 }}>Commission: ₨ {bikeEntries[index]?.commissionPrice || 0}</Typography>
+      <Typography sx={{ mb: 1 }}>Total Expenses: ₨ {bikeEntries[index]?.totalExpenses || 0}</Typography>
+      <Divider sx={{ my: 1 }} />
+      <Typography fontWeight="bold">
+        Final Price: ₨ {
+          (Number(bikeEntries[index]?.purchasePrice) || 0) +
+          (Number(bikeEntries[index]?.commissionPrice) || 0) +
+          (Number(bikeEntries[index]?.totalExpenses) || 0)
+        }
+      </Typography>
+    </Box>
+  </>
+)}
+
               <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2}}>
                 <TextField
                   label="Purchase Price"
@@ -1117,7 +1263,12 @@ const handleConditionChange = (index, value) => {
     cnic: SellerCNIC
   }}
   priceDetails={{
-    purchasePrice: bikeEntries[currentStep]?.purchasePrice || 0
+    purchasePrice: bikeEntries[currentStep]?.purchasePrice || 0,
+    commissionPrice: bikeEntries[currentStep]?.commissionPrice || 0,
+    totalExpenses: bikeEntries[currentStep]?.totalExpenses || 0,
+    finalPrice: (Number(bikeEntries[currentStep]?.purchasePrice) || 0) +
+                (Number(bikeEntries[currentStep]?.commissionPrice) || 0) +
+                (Number(bikeEntries[currentStep]?.totalExpenses) || 0)
   }}
 />
       <Snackbar

@@ -27,7 +27,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import url from '../baseUrl';
 
-const SparePartApp = () => {
+const SparePartApp = (role) => {
   const theme = useTheme();
   const [spareParts, setSpareParts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -205,8 +205,8 @@ const SparePartApp = () => {
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Condition</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Warehouse Location</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Quantity</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Unit Price</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Actions</TableCell>
+                {role.role !== 'manager' && (<TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Unit Price</TableCell>)}
+                {role.role !== 'manager' && (<TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Actions</TableCell>)}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -216,11 +216,13 @@ const SparePartApp = () => {
                   <TableCell>{part.condition}</TableCell>
                   <TableCell>{part.warehouseLocation}</TableCell>
                   <TableCell>{part.quantity}</TableCell>
-                  <TableCell>{part.unitPrice}</TableCell>
+                  {role.role !== 'manager' && (<TableCell>{part.unitPrice}</TableCell>)}
                   <TableCell>
+                  {role.role !== 'manager' && (
                     <IconButton onClick={() => handleEditClick(part)} color="primary">
                       <EditIcon />
                     </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -326,12 +326,12 @@ function ModernNavigation2() {
               <Route path="/managerdashboard/home" element={<HomeScreen />} />
 
               {/* Inventory */}
-              <Route path="/managerdashboard/inventory/motorcycles" element={<BikeList />} />
-              <Route path="/managerdashboard/inventory/spareparts" element={<SpareParts />} />
+              <Route path="/managerdashboard/inventory/motorcycles" element={<BikeList role={'manager'} />} />
+              <Route path="/managerdashboard/inventory/spareparts" element={<SpareParts role={'manager'} />} />
               
               {/*Sales*/}
-              <Route path='/managerdashboard/sales/sellMotorcycle' element={<SaleNow/>}/>
-              <Route path='/managerdashboard/sales/sellParts' element={<SaleSparePart/>}/>
+              <Route path='/managerdashboard/sales/sellMotorcycle' element={<SaleNow role={'manager'}/>}/>
+              <Route path='/managerdashboard/sales/sellParts' element={<SaleSparePart role={'manager'}/>}/>
 
 
               {/* Default Route */}

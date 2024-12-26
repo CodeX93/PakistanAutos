@@ -147,5 +147,37 @@ ExpenseRouter.delete("/delete/:id", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+// Get All Expenses
+ExpenseRouter.get("/getAllExpenses", async (req, res) => {
+  try {
+    // Create a query to get all documents from the expenses collection
+    const q = query(collection(db, "expenses"));
+    const snapshot = await getDocs(q);
+
+    // Map through the documents and format the data
+    const expenses = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      expenseAmount: Number(doc.data().expenseAmount)  // Ensure amount is a number
+    }));
+
+    // Calculate total expenses
+    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.expenseAmount, 0);
+
+    // Return both the expenses array and the total
+    res.status(200).json({
+      expenses: expenses,
+      total: totalExpenses,
+      count: expenses.length
+    });
+
+  } catch (error) {
+    console.error("Error fetching expenses:", error);
+    res.status(500).json({
+      message: "Failed to fetch expenses",
+      error: error.message
+    });
+  }
+});
 
 export default ExpenseRouter;

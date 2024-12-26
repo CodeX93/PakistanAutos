@@ -12,7 +12,7 @@ import { jsPDF } from "jspdf";
 import logoData from '../Asset/Images/PakistanAutoLogo-bgRemoved.png';
 import url from '../baseUrl';
 
-const SaleSparePart = () => {
+const SaleSparePart = (role) => {
   const theme = useTheme();
   const [spareParts, setSpareParts] = useState([]);
   const [filteredSpareParts, setFilteredSpareParts] = useState([]);
@@ -371,7 +371,7 @@ const SaleSparePart = () => {
       addField("Quantity:", product.quantity?.toString() || "N/A", 90);
       currentY += spacing;
   
-      addField("Unit Price:", `₨${product.unitPrice?.toLocaleString() || "N/A"}`, 0);
+      // addField("Unit Price:", `₨${product.unitPrice?.toLocaleString() || "N/A"}`, 0);
       addField("Selling Price:", `₨${product.unitSellingPrice?.toLocaleString() || "N/A"}`, 90);
       currentY += spacing * 2;
       checkPageBreak();
@@ -437,9 +437,11 @@ const SaleSparePart = () => {
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
                   Available Quantity
                 </TableCell>
+                {role.role !== 'manager' && (
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
                   Unit Price
                 </TableCell>
+                )}
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', bgcolor: theme.palette.grey[200] }}>
                   Action
                 </TableCell>
@@ -453,7 +455,7 @@ const SaleSparePart = () => {
                   <TableCell>{part.subCategory.name}</TableCell>
                   <TableCell>{part.condition}</TableCell>
                   <TableCell>{part.quantity}</TableCell>
-                  <TableCell>Rs. {part.unitPrice.toFixed(2)}</TableCell>
+                  {role.role !== 'manager' && (<TableCell>Rs. {part.unitPrice.toFixed(2)}</TableCell>)}
                   <TableCell>
                     <Button
                       variant="outlined"
@@ -482,6 +484,7 @@ const SaleSparePart = () => {
       </Fab>
 
       <CartDialog
+      role={role}
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cart={cart}
