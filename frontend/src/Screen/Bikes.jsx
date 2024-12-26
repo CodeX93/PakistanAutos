@@ -89,7 +89,7 @@ const BikeList = (role) => {
     };
 
     fetchData();
-  }, []);
+  }, [role]);
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
@@ -119,6 +119,7 @@ const BikeList = (role) => {
   };
 
   const filteredBikes = bikeData.filter((bike) => {
+    console.log(bike)
     const searchTermLower = searchTerm.toLowerCase();
     
     // Common searchable fields
@@ -142,7 +143,10 @@ const BikeList = (role) => {
                          electricMatches;
   
     const matchesType = filterType === 'All' || bike.type === filterType;
-    const matchesCondition = role !== 'used-bikes' ? bike.condition === 'used' : true;
+    
+    // Show only used bikes for 'used-bikes' role, show all bikes for other roles
+    const matchesCondition = role.role === 'used-bikes' ? bike.condition === 'used' : true;
+  
     return matchesSearch && matchesType && matchesCondition;
   });
 
@@ -481,7 +485,12 @@ const BikeList = (role) => {
 
 
   {selectedBike.condition === 'used' && (
+    
     <>
+    {role.role !== 'manager' && (
+    <>
+    
+    
       <Grid item xs={6} sx={{ textAlign: 'left', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
         <AttachMoneyIcon color="primary" /> Commission:
       </Grid>
@@ -516,8 +525,12 @@ const BikeList = (role) => {
       <Grid item xs={6} sx={{ textAlign: 'left', display: 'flex', alignItems: 'center' }}>
         ₨ {selectedBike.finalPurchasePrice?.toLocaleString() || 0}
       </Grid>
+      </>
+      )}
+      
     </>
   )}
+  
 
   {/* Seller Info Section */}
   <Grid item xs={12}>

@@ -472,7 +472,7 @@ function ModernNavigation() {
               <Route path="/admindashboard/home" element={<HomeScreen />} />
 
               {/* Inventory */}
-              <Route path="/admindashboard/inventory/motorcycles" element={<BikeList />} />
+              <Route path="/admindashboard/inventory/motorcycles" element={<BikeList role={'used-bikes'}/>}/>} />
               
 
               {/* Sold Inventory */}
