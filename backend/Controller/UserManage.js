@@ -72,5 +72,35 @@ if(email==="manager@pakistan-autos.com"){
     })
   }
 });
+UserRouter.post('/login3', async (req, res) => {
+  const { email, password } = req.body;
+if(email==="used-bikes@pakistan-autos.com"){
+  try {
+    // Sign in the user with email and password using Firebase Client Auth
+    const userCredential = await signInWithEmailAndPassword(getAuth(), email, password);
+    
+    // Get the user's ID token
+    const idToken = await userCredential.user.getIdToken();
+    
+    // Set token and role in response headers
+    res.setHeader('Authorization', `${idToken}`);
+    res.setHeader('User-Role', 'used-bikes'); // Hardcoded role as manager
+
+    return res.status(200).json({
+      message: 'Login successful'
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(401).json({
+      message: 'Invalid email or password',
+      error: error.message,
+    });
+  }}else{
+    return res.status(403).json({
+      message:"Invalid Credentials",
+      
+    })
+  }
+});
 
 export default UserRouter;

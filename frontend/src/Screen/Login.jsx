@@ -129,7 +129,18 @@ const LoginScreen = () => {
     setLoading(true);
   
     try {
-      const endpoint = role === 'admin' ? `${url}/user/login` : `${url}/user/login2`;
+      // Determine the endpoint based on the role
+      let endpoint;
+      if (role === 'admin') {
+        endpoint = `${url}/user/login`;
+      } else if (role === 'manager') {
+        endpoint = `${url}/user/login2`;
+      } else if (role === 'used-bikes') {
+        endpoint = `${url}/user/login3`;
+      } else {
+        throw new Error('Invalid role specified');
+      }
+  
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -159,6 +170,8 @@ const LoginScreen = () => {
           navigate('/admindashboard/home');
         } else if (userRole === 'manager') {
           navigate('/managerdashboard/home');
+        } else if (userRole === 'used-bikes') {
+          navigate('/usedbikesdashboard/home');
         }
       }, 1000);
     } catch (error) {
@@ -166,7 +179,8 @@ const LoginScreen = () => {
       setError('Login failed. Please check your credentials.');
       setLoading(false);
     }
-  };
+};
+
   
   const handleRoleChange = (event, newRole) => {
     if (newRole !== null) {
@@ -240,6 +254,9 @@ const LoginScreen = () => {
               </ToggleButton>
               <ToggleButton value="manager" aria-label="manager">
                 Manager
+              </ToggleButton>
+              <ToggleButton value="used-bikes" aria-label="manager">
+                Used-Bikes
               </ToggleButton>
             </RoleToggle>
             <LoginButton 

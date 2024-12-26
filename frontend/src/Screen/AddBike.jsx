@@ -33,7 +33,7 @@ const cities = [
   'Sialkot', 'Bahawalpur', 'Sukkur', 'Larkana', 'Nawabshah',
 ];
 
-const AddBike = () => {
+const AddBike = (role) => {
 
   const [manufacturers, setManufacturers] = useState([]);
   const [models, setModels] = useState([]);
@@ -963,7 +963,7 @@ const [errors, setErrors] = useState({});
                     sx={{ textAlign: 'left' }}
                     required
                 >
-                    <MenuItem value="new">New</MenuItem>
+                      {role.role !== 'used-bikes' && (<MenuItem value="new">New</MenuItem>)}
                     <MenuItem value="used">Used</MenuItem>
                 </Select>
             </FormControl>

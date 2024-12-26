@@ -142,9 +142,11 @@ const BikeList = (role) => {
                          electricMatches;
   
     const matchesType = filterType === 'All' || bike.type === filterType;
-  
-    return matchesSearch && matchesType;
+    const matchesCondition = role !== 'used-bikes' ? bike.condition === 'used' : true;
+    return matchesSearch && matchesType && matchesCondition;
   });
+
+
 
   return (
     <Container>
@@ -256,9 +258,10 @@ const BikeList = (role) => {
               </TableHead>
               <TableBody>
                 {filteredBikes
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  
                   .map((bike, index) => (
                     <TableRow key={index} hover sx={{ '&:nth-of-type(odd)': { backgroundColor: theme.palette.grey[50] } }}>
+
                      <TableCell>
   {bike.type === 'Electric' ? (
     <>
@@ -300,15 +303,7 @@ const BikeList = (role) => {
             </Table>
           </TableContainer>
 
-          <TablePagination
-            component="div"
-            count={filteredBikes.length}
-            page={page}
-            onPageChange={handlePageChange}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleRowsPerPageChange}
-            rowsPerPageOptions={[10, 25, 50]}
-          />
+     
         </>
       )}
 
@@ -366,6 +361,7 @@ const BikeList = (role) => {
     },
   }}
 >
+  
   {/* Identification Numbers Section */}
   {selectedBike.type === 'Electric' ? (
     <>
