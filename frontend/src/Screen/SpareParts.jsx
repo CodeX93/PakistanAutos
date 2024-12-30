@@ -1,3 +1,4 @@
+// Part 1: Imports and Initial Setup
 import React, { useEffect, useState } from 'react';
 import {
   Container,
@@ -14,25 +15,44 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  DialogActions,
   CircularProgress,
   Paper,
   Button,
   useTheme,
   Box,
   Divider,
-  Modal
+  Modal,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import url from '../baseUrl';
 
-const SparePartApp = (role) => {
+// Part 2: Modal Style Configuration
+const modalStyle = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: '90%',
+  maxWidth: 800,
+  bgcolor: 'background.paper',
+  boxShadow: 24,
+  borderRadius: 2,
+  p: 4,
+};
+
+// Part 3: Main Component
+const SparePartApp = ({ role }) => {
   const theme = useTheme();
   const [spareParts, setSpareParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedPart, setSelectedPart] = useState(null);
+  const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     productName: '',
     condition: '',
@@ -48,39 +68,37 @@ const SparePartApp = (role) => {
     supplierAddress: '',
     supplierCnic: '',
   });
-  const [open, setOpen] = useState(false);
 
+  // Part 4: API Functions
   const fetchAllSpareParts = async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await fetch(`${url}/sparepart/`);
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
       const data = await response.json();
       setSpareParts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching spare parts:', error);
-      setError('Failed to fetch spare parts');
-      setSpareParts([]);
+      setError('No Spare Parts in the System');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
-  };
-
   const handleUpdateSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!selectedPart?.id) {
+      setError('No part selected for update');
+      return;
+    }
+
     try {
-      const { id: productId } = selectedPart;
       const requestBody = {
         formData: {
           category: formData.category,
@@ -97,32 +115,43 @@ const SparePartApp = (role) => {
           productName: formData.productName,
           condition: formData.condition,
           warehouseLocation: formData.warehouseLocation,
-          unitPrice: parseFloat(formData.unitPrice),
-          quantity: parseInt(formData.quantity, 10),
+          unitPrice: parseFloat(formData.unitPrice) || 0,
+          quantity: parseInt(formData.quantity, 10) || 0,
           bikeType: formData.bikeType,
         },
       };
 
-      const response = await fetch(`${url}/sparepart/updateSparePart/${productId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await fetch(
+        `${url}/sparepart/updateSparePart/${selectedPart.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        }
+      );
 
-      
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to update spare part: ${response.status} ${response.statusText}\n${errorText}`);
+        throw new Error(`Failed to update spare part: ${errorText}`);
       }
 
       await fetchAllSpareParts();
-      handleCloseDialog();
+      setOpen(false);
     } catch (error) {
       console.error('Error updating spare part:', error);
-      setError('Failed to update spare part');
+      setError('Failed to update spare part. Please try again.');
     }
+  };
+
+  // Part 5: Event Handlers
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleEditClick = (part) => {
@@ -131,8 +160,8 @@ const SparePartApp = (role) => {
       productName: part.productName || '',
       condition: part.condition || '',
       warehouseLocation: part.warehouseLocation || '',
-      quantity: part.quantity || 0,
-      unitPrice: part.unitPrice || 0,
+      quantity: part.quantity?.toString() || '0',
+      unitPrice: part.unitPrice?.toString() || '0',
       bikeType: part.bikeType || 'Electric Motorbike',
       category: part.category || '',
       subCategory: part.subCategory || '',
@@ -145,85 +174,132 @@ const SparePartApp = (role) => {
     setOpen(true);
   };
 
-  const handleCloseDialog = () => {
-    setOpen(false);
-    setSelectedPart(null);
-    setFormData({
-      productName: '',
-      condition: '',
-      warehouseLocation: '',
-      quantity: '',
-      unitPrice: '',
-      bikeType: 'Electric Motorbike',
-      category: '',
-      subCategory: '',
-      supplierId: '',
-      supplierName: '',
-      supplierContact: '',
-      supplierAddress: '',
-      supplierCnic: '',
-    });
-  };
-
+  // Part 6: Effects
   useEffect(() => {
     fetchAllSpareParts();
   }, []);
 
+  // Part 7: Loading State
   if (loading) {
     return (
       <Container>
-        <CircularProgress />
-        <Typography>Loading spare parts...</Typography>
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="400px">
+          <CircularProgress size={40} />
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            Loading spare parts...
+          </Typography>
+        </Box>
       </Container>
     );
   }
 
-  if (error) {
-    return (
-      <Container>
-        <Typography color="error">{error}</Typography>
-        <IconButton onClick={fetchAllSpareParts} variant="contained" color="primary">
-          Retry
-        </IconButton>
-      </Container>
-    );
-  }
-
+  // Part 8: Main Render
   return (
     <Container>
-      <Typography variant="h4" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
-        Spare Parts List
-      </Typography>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+          Spare Parts List
+        </Typography>
+        
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={fetchAllSpareParts}
+                startIcon={<RefreshIcon />}
+              >
+                Retry
+              </Button>
+            }
+          >
+            <AlertTitle>Error</AlertTitle>
+            {error}
+          </Alert>
+        )}
+      </Box>
+
+      {/* Part 9: Empty State */}
       {spareParts.length === 0 ? (
-        <Typography>No spare parts found</Typography>
+        <Paper 
+          sx={{ 
+            p: 4, 
+            textAlign: 'center',
+            backgroundColor: theme.palette.grey[50]
+          }}
+        >
+          <ErrorOutlineIcon sx={{ fontSize: 48, color: theme.palette.text.secondary, mb: 2 }} />
+          <Typography variant="h6" gutterBottom>
+            No spare parts found
+          </Typography>
+          <Typography color="textSecondary" paragraph>
+            There are currently no spare parts in the database.
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<RefreshIcon />}
+            onClick={fetchAllSpareParts}
+          >
+            Refresh Data
+          </Button>
+        </Paper>
       ) : (
+        // Part 10: Data Table
         <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Product Name</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Condition</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Warehouse Location</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Quantity</TableCell>
-                {role.role !== 'manager' && (<TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Unit Price</TableCell>)}
-                {role.role !== 'manager' && (<TableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', backgroundColor: theme.palette.grey[200] }}>Actions</TableCell>)}
+                <TableCell sx={{ fontWeight: 'bold', backgroundColor: theme.palette.grey[100] }}>
+                  Product Name
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', backgroundColor: theme.palette.grey[100] }}>
+                  Condition
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', backgroundColor: theme.palette.grey[100] }}>
+                  Warehouse Location
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', backgroundColor: theme.palette.grey[100] }}>
+                  Quantity
+                </TableCell>
+                {role !== 'manager' && (
+                  <>
+                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: theme.palette.grey[100] }}>
+                      Unit Price
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: theme.palette.grey[100] }}>
+                      Actions
+                    </TableCell>
+                  </>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
               {spareParts.map((part) => (
-                <TableRow key={part.id} sx={{ '&:hover': { backgroundColor: '#f5f5f5' } }}>
+                <TableRow 
+                  key={part.id}
+                  sx={{ '&:hover': { backgroundColor: theme.palette.action.hover } }}
+                >
                   <TableCell>{part.productName}</TableCell>
                   <TableCell>{part.condition}</TableCell>
                   <TableCell>{part.warehouseLocation}</TableCell>
                   <TableCell>{part.quantity}</TableCell>
-                  {role.role !== 'manager' && (<TableCell>{part.unitPrice}</TableCell>)}
-                  <TableCell>
-                  {role.role !== 'manager' && (
-                    <IconButton onClick={() => handleEditClick(part)} color="primary">
-                      <EditIcon />
-                    </IconButton>
-                    )}
-                  </TableCell>
+                  {role !== 'manager' && (
+                    <>
+                      <TableCell>{part.unitPrice}</TableCell>
+                      <TableCell>
+                        <IconButton 
+                          onClick={() => handleEditClick(part)}
+                          color="primary"
+                          size="small"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </TableCell>
+                    </>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -231,14 +307,13 @@ const SparePartApp = (role) => {
         </TableContainer>
       )}
 
-      <Modal open={open} onClose={handleCloseDialog} fullWidth maxWidth="sm">
-        <Box
-          sx={{
-            ...modalStyle,
-            position: 'relative',
-            padding: 3,
-          }}
-        >
+      {/* Part 11: Edit Modal */}
+      <Modal 
+        open={open} 
+        onClose={() => setOpen(false)}
+        aria-labelledby="edit-spare-part-modal"
+      >
+        <Box sx={modalStyle}>
           <Box
             component="form"
             noValidate
@@ -251,174 +326,197 @@ const SparePartApp = (role) => {
             }}
           >
             <IconButton
-              onClick={handleCloseDialog}
+              onClick={() => setOpen(false)}
               sx={{
                 position: 'absolute',
-                right: '15px',
-                color: '#4CAF50',
-                '&:hover': {
-                  color: 'red',
-                  transform: 'scale(1.1)',
-                  transition: 'transform 0.2s ease-in-out',
-                },
+                right: '8px',
+                top: '8px',
+                color: theme.palette.grey[500],
               }}
             >
               <CloseIcon />
             </IconButton>
-            <Typography
-              variant="h5"
-              sx={{
-                marginBottom: '7px',
-                fontWeight: 'bold',
-                color: '#4CAF50',
-                fontSize: '1.5rem',
-              }}
-            >
-              EDIT SPARE PARTS
+
+            <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold', color: theme.palette.primary.main }}>
+              Edit Spare Part
             </Typography>
-            <Divider sx={{ marginBottom: '20px' }} />
 
-            <Box
-              sx={{
-                maxHeight: '320px',
-                overflowY: 'auto',
-                paddingRight: '8px',
-              }}
-            >
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2, marginTop: 1 }}>
-                <TextField
-                  label="Product Name"
-                  name="productName"
-                  value={formData.productName}
-                  onChange={handleInputChange}
-                  required
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <InputLabel>Condition</InputLabel>
-                <Select
-                  name="condition"
-                  value={formData.condition}
-                  onChange={handleInputChange}
-                  label="Condition"
-                  sx={{ textAlign: 'left' }}
-                >
-                  <MenuItem value="New">New</MenuItem>
-                  <MenuItem value="Used">Used</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Warehouse Location"
-                  name="warehouseLocation"
-                  value={formData.warehouseLocation}
-                  onChange={handleInputChange}
-                  required
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Quantity"
-                  name="quantity"
-                  value={formData.quantity}
-                  onChange={handleInputChange}
-                  required
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Unit Price"
-                  name="unitPrice"
-                  value={formData.unitPrice}
-                  onChange={handleInputChange}
-                  required
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <InputLabel>Bike Type</InputLabel>
-                <Select
-                  name="bikeType"
-                  value={formData.bikeType}
-                  onChange={handleInputChange}
-                  label="Bike Type"
-                  sx={{ textAlign: 'left' }}
-                >
-             <MenuItem value="Electric Motorbike">Electric Motorbike</MenuItem>
-             <MenuItem value="Non-Electric Motorbike">Non-Electric Motorbike</MenuItem>
-                </Select>
-              </FormControl>
+            <Divider />
 
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Category"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                />
-              </FormControl>
+            <Box sx={{ maxHeight: '60vh', overflowY: 'auto', pr: 1 }}>
+              {/* Part 12: Basic Information Section */}
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="h6" gutterBottom>
+                  Basic Information
+                </Typography>
+                
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Product Name"
+                    name="productName"
+                    value={formData.productName}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </FormControl>
 
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Sub Category"
-                  name="subCategory"
-                  value={formData.subCategory}
-                  onChange={handleInputChange}
-                />
-              </FormControl>
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Condition</InputLabel>
+                  <Select
+                    name="condition"
+                    value={formData.condition}
+                    onChange={handleInputChange}
+                    label="Condition"
+                  >
+                    <MenuItem value="New">New</MenuItem>
+                    <MenuItem value="Used">Used</MenuItem>
+                  </Select>
+                </FormControl>
 
-              <Typography variant="h6" gutterBottom sx={{ marginBottom: 1 }}>
-                Supplier Information
-              </Typography>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Supplier ID"
-                  name="supplierId"
-                  value={formData.supplierId}
-                  onChange={handleInputChange}
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Supplier Name"
-                  name="supplierName"
-                  value={formData.supplierName}
-                  onChange={handleInputChange}
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Supplier Contact"
-                  name="supplierContact"
-                  value={formData.supplierContact}
-                  onChange={handleInputChange}
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Supplier Address"
-                  name="supplierAddress"
-                  value={formData.supplierAddress}
-                  onChange={handleInputChange}
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" sx={{ marginBottom: 2 }}>
-                <TextField
-                  label="Supplier CNIC"
-                  name="supplierCnic"
-                  value={formData.supplierCnic}
-                  onChange={handleInputChange}
-                />
-              </FormControl>
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Warehouse Location"
+                    name="warehouseLocation"
+                    value={formData.warehouseLocation}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Quantity"
+                    name="quantity"
+                    type="number"
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Unit Price"
+                    name="unitPrice"
+                    type="number"
+                    value={formData.unitPrice}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Bike Type</InputLabel>
+                  <Select
+                    name="bikeType"
+                    value={formData.bikeType}
+                    onChange={handleInputChange}
+                    label="Bike Type"
+                  >
+                    <MenuItem value="Electric Motorbike">Electric Motorbike</MenuItem>
+                    <MenuItem value="Non-Electric Motorbike">Non-Electric Motorbike</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Divider sx={{ my: 3 }} />
+
+              {/* Part 13: Category Information Section */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Category Information
+                </Typography>
+                
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Category"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Sub Category"
+                    name="subCategory"
+                    value={formData.subCategory}
+                    onChange={handleInputChange}
+                  />
+                </FormControl>
+              </Box>
+
+              <Divider sx={{ my: 3 }} />
+
+              {/* Part 14: Supplier Information Section */}
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  Supplier Information
+                </Typography>
+                
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Supplier ID"
+                    name="supplierId"
+                    value={formData.supplierId}
+                    onChange={handleInputChange}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Supplier Name"
+                    name="supplierName"
+                    value={formData.supplierName}
+                    onChange={handleInputChange}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Supplier Contact"
+                    name="supplierContact"
+                    value={formData.supplierContact}
+                    onChange={handleInputChange}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Supplier Address"
+                    name="supplierAddress"
+                    value={formData.supplierAddress}
+                    onChange={handleInputChange}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <TextField
+                    label="Supplier CNIC"
+                    name="supplierCnic"
+                    value={formData.supplierCnic}
+                    onChange={handleInputChange}
+                  />
+                </FormControl>
+              </Box>
             </Box>
 
-            <DialogActions sx={{ padding: 2 }}>
-              <Button onClick={handleCloseDialog} variant="contained" color="secondary">
+            {/* Part 15: Form Actions */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+              <Button
+                variant="outlined"
+                onClick={() => setOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" variant="contained" color="primary">
-                Save Changes
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+              >
+                Update Spare Part
               </Button>
-            </DialogActions>
+            </Box>
           </Box>
         </Box>
       </Modal>
@@ -426,18 +524,4 @@ const SparePartApp = (role) => {
   );
 };
 
-const modalStyle = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: '400px',
-  maxWidth: '90%',
-  backgroundColor: '#f7fdf9',
-  borderRadius: '15px',
-  boxShadow: '0 8px 24px rgba(0, 128, 0, 0.2)',
-  padding: '25px',
-  textAlign: 'center',
-  overflow: 'hidden',
-};
 export default SparePartApp;

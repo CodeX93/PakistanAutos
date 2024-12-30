@@ -138,6 +138,9 @@ const initialState = {
 const StatCard = ({ title, value, icon: Icon, subtitle = null, color = "primary" }) => {
   const theme = useTheme();
   
+  // Ensure value is rendered as a string
+  const displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
+  
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
@@ -147,7 +150,7 @@ const StatCard = ({ title, value, icon: Icon, subtitle = null, color = "primary"
               {title}
             </Typography>
             <Typography variant="h4" sx={{ my: 1, fontWeight: 'bold', color: `${color}.main` }}>
-              {value}
+              {displayValue}
             </Typography>
             {subtitle && (
               <Typography variant="body2" color="textSecondary">
@@ -377,70 +380,118 @@ const PaymentHistory = ({ payments }) => (
 );
 
 // Spare Part Product Information
-const ProductInformation = ({ data }) => (
-  <Grid item xs={12} md={6}>
-    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-      Product Information
-    </Typography>
-    <Box sx={{ mt: 1 }}>
-      {data.type === 'sale' ? (
-        data.products?.map((product, index) => (
-          <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-            <Typography>Product: {product.productName}</Typography>
-            <Typography>Category: {product.category}</Typography>
-            <Typography>Quantity: {product.quantity}</Typography>
-            <Typography>Unit Price: {formatCurrency(product.unitSellingPrice)}</Typography>
-            <Typography>Total: {formatCurrency(product.unitSellingPrice * product.quantity)}</Typography>
-            <Typography color="success.main">
-              Profit: {formatCurrency((product.unitSellingPrice - product.unitPrice) * product.quantity)}
-            </Typography>
-          </Box>
-        ))
-      ) : (
-        <>
-          <Typography>Category: {data.category}</Typography>
-          <Typography>Sub-Category: {data.subCategory}</Typography>
-          <Typography>Condition: {data.condition}</Typography>
-          <Typography>Quantity: {data.quantity}</Typography>
-          <Typography>Unit Price: {formatCurrency(data.unitPrice)}</Typography>
-          <Typography>Total: {formatCurrency(data.totalPrice)}</Typography>
-          <Typography>Location: {data.warehouseLocation}</Typography>
-        </>
-      )}
-    </Box>
-  </Grid>
-);
+// Product Information Component Fix
+const ProductInformation = ({ data }) => {
+  // Ensure we have valid arrays and objects
+  const products = Array.isArray(data.products) ? data.products : [];
+  
+  return (
+    <Grid item xs={12} md={6}>
+      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+        Product Information
+      </Typography>
+      <Box sx={{ mt: 1 }}>
+        {data.type === 'sale' ? (
+          // Handle sales display
+          products.map((product, index) => {
+            const productName = typeof product.productName === 'object' 
+              ? (product.productName?.name || 'N/A')
+              : (product.productName || 'N/A');
+              
+            const category = typeof product.category === 'object'
+              ? (product.category?.name || 'N/A')
+              : (product.category || 'N/A');
 
-// Spare Part Contact Information
-const SparePartContactInfo = ({ data }) => (
-  <Grid item xs={12} md={6}>
-    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-      {data.type === 'sale' ? 'Purchaser Information' : 'Supplier Information'}
-    </Typography>
-    <Box sx={{ mt: 1 }}>
-      {data.type === 'sale' ? (
-        <>
-          <Typography>Name: {data.purchaserDetails?.name}</Typography>
-          <Typography>Contact: {data.purchaserDetails?.contactNo}</Typography>
-          <Typography>Address: {data.purchaserDetails?.address}</Typography>
-          <Typography>CNIC: {data.purchaserDetails?.cnic}</Typography>
-        </>
-      ) : (
-        <>
-          <Typography>Name: {data.supplier?.name}</Typography>
-          <Typography>Contact: {data.supplier?.contact}</Typography>
-          <Typography>Address: {data.supplier?.address}</Typography>
-          <Typography>CNIC: {data.supplier?.cnic}</Typography>
-        </>
-      )}
-    </Box>
-  </Grid>
-);
-// Bike Row Component
+            return (
+              <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+                <Typography>Product: {productName}</Typography>
+                <Typography>Category: {category}</Typography>
+                <Typography>Quantity: {product.quantity || 0}</Typography>
+                <Typography>Unit Price: {formatCurrency(product.unitSellingPrice || 0)}</Typography>
+                <Typography>
+                  Total: {formatCurrency((product.unitSellingPrice || 0) * (product.quantity || 0))}
+                </Typography>
+                <Typography color="success.main">
+                  Profit: {formatCurrency(
+                    ((product.unitSellingPrice || 0) - (product.unitPrice || 0)) * (product.quantity || 0)
+                  )}
+                </Typography>
+              </Box>
+            );
+          })
+        ) : (
+          // Handle purchase display
+          <>
+            <Typography>
+              Category: {typeof data.category === 'object' 
+                ? (data.category?.name || 'N/A') 
+                : (data.category || 'N/A')}
+            </Typography>
+            <Typography>
+              Sub-Category: {typeof data.subCategory === 'object'
+                ? (data.subCategory?.name || 'N/A')
+                : (data.subCategory || 'N/A')}
+            </Typography>
+            <Typography>Condition: {data.condition || 'N/A'}</Typography>
+            <Typography>Quantity: {data.quantity || 0}</Typography>
+            <Typography>Unit Price: {formatCurrency(data.unitPrice || 0)}</Typography>
+            <Typography>Total: {formatCurrency(data.totalPrice || 0)}</Typography>
+            <Typography>Location: {data.warehouseLocation || 'N/A'}</Typography>
+          </>
+        )}
+      </Box>
+    </Grid>
+  );
+};
+
+// Spare Part Contact Information Component Fix
+const SparePartContactInfo = ({ data }) => {
+  // Extract and sanitize contact information
+  const contactInfo = data.type === 'sale'
+    ? {
+        name: typeof data.purchaserDetails?.name === 'object'
+          ? (data.purchaserDetails?.name?.name || 'N/A')
+          : (data.purchaserDetails?.name || 'N/A'),
+        contact: data.purchaserDetails?.contactNo || 'N/A',
+        address: data.purchaserDetails?.address || 'N/A',
+        cnic: data.purchaserDetails?.cnic || 'N/A'
+      }
+    : {
+        name: typeof data.supplier?.name === 'object'
+          ? (data.supplier?.name?.name || 'N/A')
+          : (data.supplier?.name || 'N/A'),
+        contact: data.supplier?.contact || 'N/A',
+        address: data.supplier?.address || 'N/A',
+        cnic: data.supplier?.cnic || 'N/A'
+      };
+
+  return (
+    <Grid item xs={12} md={6}>
+      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+        {data.type === 'sale' ? 'Purchaser Information' : 'Supplier Information'}
+      </Typography>
+      <Box sx={{ mt: 1 }}>
+        <Typography>Name: {contactInfo.name}</Typography>
+        <Typography>Contact: {contactInfo.contact}</Typography>
+        <Typography>Address: {contactInfo.address}</Typography>
+        <Typography>CNIC: {contactInfo.cnic}</Typography>
+      </Box>
+    </Grid>
+  );
+};
+// BikeRow Component Fix
 const BikeRow = ({ row }) => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Ensure we're rendering strings for manufacturer and model
+  const manufacturer = row.bikeDetails?.manufacturer || row.manufacturer || '';
+  const model = row.bikeDetails?.model || row.model || '';
+  const sellingPrice = row.type === 'sale' ? row.priceDetails?.sellingPrice : row.purchasePrice;
+  const clientName = row.type === 'sale'
+    ? row.registrationDetails?.client?.fullName || 'N/A'
+    : row.sellerInfo?.name || 'N/A';
 
   return (
     <>
@@ -467,33 +518,50 @@ const BikeRow = ({ row }) => {
             />
           )}
         </TableCell>
-        <TableCell>
-          {(row.bikeDetails?.manufacturer || row.manufacturer)} {(row.bikeDetails?.model || row.model)}
-        </TableCell>
-        <TableCell align="right">
-          {formatCurrency(row.type === 'sale' ? row.priceDetails?.sellingPrice : row.purchasePrice)}
-        </TableCell>
-        {!isMobile && (
-          <TableCell>
-            {row.type === 'sale'
-              ? row.registrationDetails?.client?.fullName
-              : row.sellerInfo?.name}
-          </TableCell>
-        )}
+        <TableCell>{`${manufacturer} ${model}`.trim() || 'N/A'}</TableCell>
+        <TableCell align="right">{formatCurrency(sellingPrice)}</TableCell>
+        {!isMobile && <TableCell>{clientName}</TableCell>}
       </TableRow>
       <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={isMobile ? 5 : 6}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 1 }}>
               <Typography variant="h6" gutterBottom component="div">
                 Transaction Details
               </Typography>
               <Grid container spacing={2}>
-                <VehicleInformation data={row} />
-                <PriceDetails data={row} />
-                <ContactInformation data={row} />
+                <VehicleInformation data={{
+                  ...row,
+                  bikeDetails: row.bikeDetails || {},
+                  chassisNumber: row.bikeDetails?.chassisNumber || row.chassisNumber || 'N/A',
+                  condition: row.bikeDetails?.condition || row.condition || 'N/A',
+                  mileage: row.bikeDetails?.mileage || row.mileage || 'N/A',
+                  manufacturer: manufacturer || 'N/A',
+                  model: model || 'N/A',
+                  type: row.type,
+                  registrationDetails: row.registrationDetails || {}
+                }} />
+                <PriceDetails data={{
+                  ...row,
+                  type: row.type,
+                  priceDetails: row.priceDetails || {},
+                  purchasePrice: row.purchasePrice || 0,
+                  creditDetails: row.creditDetails || {}
+                }} />
+                <ContactInformation data={{
+                  ...row,
+                  type: row.type,
+                  registrationDetails: {
+                    client: row.registrationDetails?.client || {}
+                  },
+                  sellerInfo: row.sellerInfo || {}
+                }} />
                 {row.creditDetails && row.creditDetails.payments && (
-                  <PaymentHistory payments={row.creditDetails.payments} />
+                  <PaymentHistory payments={
+                    Array.isArray(row.creditDetails.payments) 
+                      ? row.creditDetails.payments 
+                      : []
+                  } />
                 )}
               </Grid>
             </Box>
@@ -504,11 +572,61 @@ const BikeRow = ({ row }) => {
   );
 };
 
-// Spare Part Row Component
+// SparePartRow Component Fix
 const SparePartRow = ({ row }) => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Ensure we're rendering strings for product name
+  const productName = row.productName || row.products?.[0]?.productName || 'N/A';
+  const amount = row.type === 'sale' 
+    ? (row.products?.reduce((sum, p) => sum + (p.unitSellingPrice * p.quantity), 0) || 0)
+    : row.totalPrice || 0;
+  const contactName = row.type === 'sale'
+    ? row.purchaserDetails?.name || 'N/A'
+    : row.supplier?.name || 'N/A';
+
+  // Safe product information for sales
+  const safeProducts = row.type === 'sale'
+    ? (row.products || []).map(product => ({
+        productName: product.productName || 'N/A',
+        category: product.category || 'N/A',
+        quantity: product.quantity || 0,
+        unitSellingPrice: product.unitSellingPrice || 0,
+        unitPrice: product.unitPrice || 0
+      }))
+    : [];
+
+  // Safe purchase information
+  const safePurchaseInfo = {
+    category: row.category || 'N/A',
+    subCategory: row.subCategory || 'N/A',
+    condition: row.condition || 'N/A',
+    quantity: row.quantity || 0,
+    unitPrice: row.unitPrice || 0,
+    totalPrice: row.totalPrice || 0,
+    warehouseLocation: row.warehouseLocation || 'N/A'
+  };
+
+  // Safe contact information
+  const safeContactInfo = row.type === 'sale' 
+    ? {
+        purchaserDetails: {
+          name: row.purchaserDetails?.name || 'N/A',
+          contactNo: row.purchaserDetails?.contactNo || 'N/A',
+          address: row.purchaserDetails?.address || 'N/A',
+          cnic: row.purchaserDetails?.cnic || 'N/A'
+        }
+      }
+    : {
+        supplier: {
+          name: row.supplier?.name || 'N/A',
+          contact: row.supplier?.contact || 'N/A',
+          address: row.supplier?.address || 'N/A',
+          cnic: row.supplier?.cnic || 'N/A'
+        }
+      };
 
   return (
     <>
@@ -535,32 +653,45 @@ const SparePartRow = ({ row }) => {
             />
           )}
         </TableCell>
-        <TableCell>{row.productName || row.products?.[0]?.productName}</TableCell>
-        <TableCell align="right">
-          {row.type === 'sale' 
-            ? formatCurrency(row.products?.reduce((sum, p) => sum + (p.unitSellingPrice * p.quantity), 0))
-            : formatCurrency(row.totalPrice)}
-        </TableCell>
-        {!isMobile && (
-          <TableCell>
-            {row.type === 'sale'
-              ? row.purchaserDetails?.name
-              : row.supplier?.name}
-          </TableCell>
-        )}
+        <TableCell>{productName}</TableCell>
+        <TableCell align="right">{formatCurrency(amount)}</TableCell>
+        {!isMobile && <TableCell>{contactName}</TableCell>}
       </TableRow>
       <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={isMobile ? 5 : 6}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 1 }}>
               <Typography variant="h6" gutterBottom component="div">
                 Transaction Details
               </Typography>
               <Grid container spacing={2}>
-                <ProductInformation data={row} />
-                <SparePartContactInfo data={row} />
+                <ProductInformation 
+                  data={{
+                    ...row,
+                    type: row.type,
+                    products: safeProducts,
+                    ...safePurchaseInfo
+                  }} 
+                />
+                <SparePartContactInfo 
+                  data={{
+                    ...row,
+                    type: row.type,
+                    ...safeContactInfo
+                  }} 
+                />
                 {row.creditDetails && row.creditDetails.payments && (
-                  <PaymentHistory payments={row.creditDetails.payments} />
+                  <PaymentHistory 
+                    payments={Array.isArray(row.creditDetails.payments) 
+                      ? row.creditDetails.payments.map(payment => ({
+                          date: payment.date || null,
+                          amount: payment.amount || 0,
+                          paymentMode: payment.paymentMode || 'N/A',
+                          reference: payment.reference || ''
+                        }))
+                      : []
+                    } 
+                  />
                 )}
               </Grid>
             </Box>
@@ -570,7 +701,6 @@ const SparePartRow = ({ row }) => {
     </>
   );
 };
-
 // Expense Row Component
 const ExpenseRow = ({ expense }) => {
   const [open, setOpen] = useState(false);
