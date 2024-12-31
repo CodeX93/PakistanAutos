@@ -479,17 +479,18 @@ const SparePartContactInfo = ({ data }) => {
     </Grid>
   );
 };
-// BikeRow Component Fix
 const BikeRow = ({ row }) => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Ensure we're rendering strings for manufacturer and model
-  const manufacturer = row.bikeDetails?.manufacturer || row.manufacturer || '';
-  const model = row.bikeDetails?.model || row.model || '';
-  const sellingPrice = row.type === 'sale' ? row.priceDetails?.sellingPrice : row.purchasePrice;
-  const clientName = row.type === 'sale'
+  const manufacturer = row.manufacturer || '';
+  const model = row.model || '';
+  const sellingPrice = row.transactionType === 'sale' 
+    ? row.priceDetails?.sellingPrice 
+    : row.finalPurchasePrice || row.purchasePrice || 0;
+  const clientName = row.transactionType === 'sale'
     ? row.registrationDetails?.client?.fullName || 'N/A'
     : row.sellerInfo?.name || 'N/A';
 
@@ -503,20 +504,21 @@ const BikeRow = ({ row }) => {
         </TableCell>
         <TableCell>{formatDateTime(row.createdAt)}</TableCell>
         <TableCell>
-          <Chip
-            label={row.type === 'sale' ? 'Sale' : 'Purchase'}
-            color={row.type === 'sale' ? 'success' : 'primary'}
-            variant="outlined"
-          />
-          {row.creditDetails && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Chip
-              label="Credit"
-              color="warning"
+              label={row.transactionType === 'sale' ? 'Sale' : 'Purchase'}
+              color={row.transactionType === 'sale' ? 'success' : 'primary'}
               variant="outlined"
-              size="small"
-              sx={{ ml: 1 }}
             />
-          )}
+            {row.vehicleType === 'Electric' && (
+              <Chip
+                label="Electric"
+                color="info"
+                variant="outlined"
+                size="small"
+              />
+            )}
+          </Box>
         </TableCell>
         <TableCell>{`${manufacturer} ${model}`.trim() || 'N/A'}</TableCell>
         <TableCell align="right">{formatCurrency(sellingPrice)}</TableCell>
@@ -527,41 +529,104 @@ const BikeRow = ({ row }) => {
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 1 }}>
               <Typography variant="h6" gutterBottom component="div">
-                Transaction Details
+                Vehicle Details
               </Typography>
               <Grid container spacing={2}>
-                <VehicleInformation data={{
-                  ...row,
-                  bikeDetails: row.bikeDetails || {},
-                  chassisNumber: row.bikeDetails?.chassisNumber || row.chassisNumber || 'N/A',
-                  condition: row.bikeDetails?.condition || row.condition || 'N/A',
-                  mileage: row.bikeDetails?.mileage || row.mileage || 'N/A',
-                  manufacturer: manufacturer || 'N/A',
-                  model: model || 'N/A',
-                  type: row.type,
-                  registrationDetails: row.registrationDetails || {}
-                }} />
-                <PriceDetails data={{
-                  ...row,
-                  type: row.type,
-                  priceDetails: row.priceDetails || {},
-                  purchasePrice: row.purchasePrice || 0,
-                  creditDetails: row.creditDetails || {}
-                }} />
-                <ContactInformation data={{
-                  ...row,
-                  type: row.type,
-                  registrationDetails: {
-                    client: row.registrationDetails?.client || {}
-                  },
-                  sellerInfo: row.sellerInfo || {}
-                }} />
-                {row.creditDetails && row.creditDetails.payments && (
-                  <PaymentHistory payments={
-                    Array.isArray(row.creditDetails.payments) 
-                      ? row.creditDetails.payments 
-                      : []
-                  } />
+                {/* Vehicle Information */}
+                <Grid item xs={12} md={4}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Vehicle Information
+                  </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <Typography>Frame No: {row.frameNo || 'N/A'}</Typography>
+                    <Typography>Motor No: {row.motorNo || 'N/A'}</Typography>
+                    <Typography>Model Year: {row.modelYear || 'N/A'}</Typography>
+                    <Typography>Condition: {row.condition || 'N/A'}</Typography>
+                    <Typography>Mileage: {row.mileage || 'N/A'}</Typography>
+                    {row.vehicleType === 'Electric' && (
+                      <>
+                        <Typography>Range: {row.range || 'N/A'}</Typography>
+                        <Typography>Power: {row.power || 'N/A'}</Typography>
+                        <Typography>Warranty: {row.warranty || 'N/A'}</Typography>
+                      </>
+                    )}
+                  </Box>
+                </Grid>
+
+                {/* Price Details */}
+                <Grid item xs={12} md={4}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Price Details
+                  </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <Typography>
+                      Purchase Price: {formatCurrency(row.purchasePrice)}
+                    </Typography>
+                    <Typography>
+                      Final Price: {formatCurrency(row.finalPurchasePrice)}
+                    </Typography>
+                    <Typography>
+                      Commission: {formatCurrency(row.commissionPrice)}
+                    </Typography>
+                    <Typography>
+                      Total Expenses: {formatCurrency(row.totalExpenses)}
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                {/* Contact Information */}
+                <Grid item xs={12} md={4}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Seller Information
+                  </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <Typography>Name: {row.sellerInfo?.name || 'N/A'}</Typography>
+                    <Typography>Contact: {row.sellerInfo?.contactNo || 'N/A'}</Typography>
+                    <Typography>Address: {row.sellerInfo?.address || 'N/A'}</Typography>
+                    <Typography>CNIC: {row.sellerInfo?.cnic || 'N/A'}</Typography>
+                  </Box>
+                </Grid>
+
+                {/* Battery Details for Electric Bikes */}
+                {row.vehicleType === 'Electric' && row.batteryDetails && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                      Battery Details
+                    </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography>Volts: {row.batteryDetails.volts || 'N/A'}</Typography>
+                      <Typography>Amperes: {row.batteryDetails.amperes || 'N/A'}</Typography>
+                      <Typography>Capacity: {row.batteryDetails.capacity || 'N/A'}</Typography>
+                      <Typography>Quantity: {row.batteryDetails.quantity || 'N/A'}</Typography>
+                    </Box>
+                  </Grid>
+                )}
+
+                {/* Expenses List */}
+                {Array.isArray(row.expenses) && row.expenses.length > 0 && row.expenses[0].name && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                      Additional Expenses
+                    </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Description</TableCell>
+                            <TableCell align="right">Amount</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {row.expenses.map((expense, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{expense.name}</TableCell>
+                              <TableCell align="right">{formatCurrency(expense.cost)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
                 )}
               </Grid>
             </Box>
@@ -1119,57 +1184,113 @@ const FinancialDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch all data
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
+  
+      console.log('Fetching data with Date Range:', startDate, endDate);
+  
       const [summaryResponse, bikesResponse, sparePartsResponse, expensesResponse, loansResponse] = await Promise.all([
-        fetch(`${url}/ledger/summary?startDate=${startDate}&endDate=${endDate}`),
-        fetch(`${url}/ledger/bike?startDate=${startDate}&endDate=${endDate}`),
-        fetch(`${url}/ledger/sparepart?startDate=${startDate}&endDate=${endDate}`),
+        fetch(`${url}/ledger/summary?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+        fetch(`${url}/ledger/bike?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+        fetch(`${url}/ledger/sparepart?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
         fetch(`${url}/expense/getAllExpenses`),
         fetch(`${url}/localCreditBuy/getAllLoans`)
       ]);
-
-      if (!summaryResponse.ok || !bikesResponse.ok || !sparePartsResponse.ok || 
+  console.log(summaryResponse, bikesResponse, sparePartsResponse, expensesResponse, loansResponse);
+      if (!summaryResponse.ok || !bikesResponse.ok || !sparePartsResponse.ok ||
           !expensesResponse.ok || !loansResponse.ok) {
-        throw new Error('Failed to fetch data');
+        throw new Error('One or more API calls failed');
       }
-
-      const [summaryData, bikesData, sparePartsData, expensesData, loansData] = await Promise.all([
+  
+      const [summaryData, bikesText, sparePartsData, expensesData, loansData] = await Promise.all([
         summaryResponse.json(),
-        bikesResponse.json(),
+        bikesResponse.text(), // Use text() for debugging
         sparePartsResponse.json(),
         expensesResponse.json(),
         loansResponse.json()
       ]);
-
-      setSummaryData(summaryData.summary);
-      setLedgerData({
-        bikes: {
-          purchases: bikesData.details?.purchases || [],
-          sales: bikesData.details?.sales || [],
-          creditPurchases: bikesData.details?.creditPurchases || [],
-          creditSales: bikesData.details?.creditSales || []
-        },
+  
+      let bikesData;
+      try {
+        bikesData = JSON.parse(bikesText);
+      } catch (error) {
+        console.error('Failed to parse bikes JSON:', bikesText);
+        throw new Error('Invalid bikes response format');
+      }
+  
+      // Log the raw bikesData
+      console.log('Raw Bikes Data:', bikesData);
+  
+      // Ensure bikesData.details exists
+      if (!bikesData.details) {
+        console.error('bikesData.details is undefined or null');
+        throw new Error('Invalid bikes data structure');
+      }
+  
+      // Log specific fields
+      console.log('Bikes Data Details:', bikesData.details);
+      console.log('Purchases:', bikesData.details.purchases);
+  
+      // Process bike data
+      const processedBikeData = {
+        purchases: Array.isArray(bikesData.details.purchases) 
+          ? bikesData.details.purchases.map(purchase => ({
+              ...purchase,
+              transactionType: 'purchase',
+              vehicleType: purchase.type
+            }))
+          : [],
+        sales: Array.isArray(bikesData.details.sales)
+          ? bikesData.details.sales.map(sale => ({
+              ...sale,
+              transactionType: 'sale',
+              vehicleType: sale.type
+            }))
+          : [],
+        creditPurchases: Array.isArray(bikesData.details.creditPurchases)
+          ? bikesData.details.creditPurchases.map(purchase => ({
+              ...purchase,
+              transactionType: 'purchase',
+              vehicleType: purchase.type,
+              isCredit: true
+            }))
+          : [],
+        creditSales: Array.isArray(bikesData.details.creditSales)
+          ? bikesData.details.creditSales.map(sale => ({
+              ...sale,
+              transactionType: 'sale',
+              vehicleType: sale.type,
+              isCredit: true
+            }))
+          : [],
+      };
+  
+      console.log('Processed Bike Data:', processedBikeData);
+  
+      const newLedgerData = {
+        bikes: processedBikeData,
         spareParts: {
           purchases: sparePartsData.details?.purchases || [],
           sales: sparePartsData.details?.sales || [],
           creditPurchases: sparePartsData.details?.creditPurchases || [],
           creditSales: sparePartsData.details?.creditSales || []
         }
-      });
+      };
+  
+      setLedgerData(newLedgerData);
+      setSummaryData(summaryData.summary);
       setExpenses(expensesData.expenses || []);
       setLoans(loansData.loans || []);
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error details:', err);
       setError('Failed to fetch data. Please try again.');
     } finally {
       setLoading(false);
     }
   }, [startDate, endDate]);
+  
 
   // Initial data fetch
   useEffect(() => {

@@ -77,7 +77,8 @@ const SparePartApp = ({ role }) => {
       const response = await fetch(`${url}/sparepart/`);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        
+        throw new Error(`No Spare Partsstatus: ${response.status}`);
       }
       
       const data = await response.json();
